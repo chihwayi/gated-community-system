@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.orm import Session
 from app.models.all_models import Visitor, VisitorStatus
 from app.schemas.visitor import VisitorCreate, VisitorUpdate
@@ -9,8 +10,26 @@ def get_visitor(db: Session, visitor_id: int):
 def get_visitors_by_host(db: Session, host_id: int, skip: int = 0, limit: int = 100):
     return db.query(Visitor).filter(Visitor.host_id == host_id).offset(skip).limit(limit).all()
 
-def get_all_visitors(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Visitor).offset(skip).limit(limit).all()
+def get_all_visitors(
+    db: Session, 
+    skip: int = 0, 
+    limit: int = 100, 
+    status: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    query = db.query(Visitor)
+    
+    if status:
+        query = query.filter(Visitor.status == status)
+        
+    if start_date:
+        query = query.filter(Visitor.created_at >= start_date)
+        
+    if end_date:
+        query = query.filter(Visitor.created_at <= end_date)
+        
+    return query.offset(skip).limit(limit).all()
 
 def get_visitor_by_access_code(db: Session, access_code: str):
     return db.query(Visitor).filter(Visitor.access_code == access_code).first()

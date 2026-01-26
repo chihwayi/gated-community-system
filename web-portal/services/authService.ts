@@ -6,6 +6,9 @@ export interface User {
   full_name: string;
   role: 'admin' | 'resident' | 'guard';
   is_active: boolean;
+  is_password_changed: boolean;
+  created_at: string;
+  house_address?: string;
 }
 
 interface LoginResponse {
@@ -35,12 +38,51 @@ export const authService = {
   async getCurrentUser(token: string): Promise<User> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/users/me`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
+      cache: 'no-store',
     });
 
     if (!response.ok) {
       throw new Error('Failed to fetch user');
+    }
+
+    return response.json();
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<User> {
+    const token = this.getToken();
+    const response = await fetch(`${API_CONFIG.BASE_URL}/users/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to change password');
+    }
+
+    return response.json();
+  },
+
+  async resetPassword(userId: number, newPassword: string): Promise<User> {
+    const token = this.getToken();
+    const response = await fetch(`${API_CONFIG.BASE_URL}/users/${userId}/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ new_password: newPassword }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to reset password');
     }
 
     return response.json();

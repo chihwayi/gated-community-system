@@ -2,7 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, LogOut } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  Users, 
+  Shield, 
+  FileBarChart, 
+  CreditCard, 
+  Bell, 
+  AlertTriangle, 
+  LogOut, 
+  LifeBuoy, 
+  Dumbbell,
+  Car,
+  Package,
+  Vote,
+  FileText
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Sidebar() {
@@ -12,6 +27,17 @@ export default function Sidebar() {
   const navItems = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Residents", href: "/dashboard/residents", icon: Users },
+    { name: "Vehicles", href: "/dashboard/vehicles", icon: Car },
+    { name: "Parcels", href: "/dashboard/parcels", icon: Package },
+    { name: "Polls", href: "/dashboard/polls", icon: Vote },
+    { name: "Documents", href: "/dashboard/documents", icon: FileText },
+    { name: "Security", href: "/dashboard/guards", icon: Shield },
+    { name: "Reports", href: "/dashboard/reports", icon: FileBarChart },
+    { name: "Financials", href: "/dashboard/financial", icon: CreditCard },
+    { name: "Notices", href: "/dashboard/notices", icon: Bell },
+    { name: "Incidents", href: "/dashboard/incidents", icon: AlertTriangle },
+    { name: "Helpdesk", href: "/dashboard/tickets", icon: LifeBuoy },
+    { name: "Amenities", href: "/dashboard/amenities", icon: Dumbbell },
   ];
 
   return (

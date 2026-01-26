@@ -22,7 +22,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=gated_community_db
-      - BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:8000"]
+      - BACKEND_CORS_ORIGINS=["*"]
     depends_on:
       - db
 

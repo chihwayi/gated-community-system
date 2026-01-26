@@ -14,6 +14,10 @@ export interface Visitor {
   created_at: string;
   check_in_time?: string;
   check_out_time?: string;
+  items_carried_in?: string;
+  items_carried_out?: string;
+  visitor_type?: 'visitor' | 'maid' | 'contractor' | 'delivery' | 'other';
+  valid_until?: string;
 }
 
 export interface VisitorCreate {
@@ -23,6 +27,8 @@ export interface VisitorCreate {
   purpose?: string;
   expected_arrival?: string;
   host_id?: number; // Optional now, inferred from token
+  visitor_type?: string;
+  valid_until?: string;
 }
 
 const getHeaders = () => {
@@ -34,8 +40,13 @@ const getHeaders = () => {
 };
 
 export const visitorService = {
-  async getAllVisitors(): Promise<Visitor[]> {
-    const response = await fetch(`${API_CONFIG.BASE_URL}/visitors/`, {
+  async getAllVisitors(filters?: { status?: string; startDate?: string; endDate?: string }): Promise<Visitor[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.startDate) params.append('start_date', filters.startDate);
+    if (filters?.endDate) params.append('end_date', filters.endDate);
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/visitors/?${params.toString()}`, {
       headers: getHeaders(),
     });
     if (!response.ok) {
@@ -99,10 +110,11 @@ export const visitorService = {
     return response.json();
   },
 
-  async checkInVisitor(visitorId: number): Promise<Visitor> {
+  async checkInVisitor(visitorId: number, itemsCarriedIn?: string): Promise<Visitor> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/visitors/${visitorId}/check-in`, {
       method: 'POST',
       headers: getHeaders(),
+      body: JSON.stringify({ items_carried_in: itemsCarriedIn }),
     });
     if (!response.ok) {
       const errorData = await response.json();
@@ -111,10 +123,11 @@ export const visitorService = {
     return response.json();
   },
 
-  async checkOutVisitor(visitorId: number): Promise<Visitor> {
+  async checkOutVisitor(visitorId: number, itemsCarriedOut?: string): Promise<Visitor> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/visitors/${visitorId}/check-out`, {
       method: 'POST',
       headers: getHeaders(),
+      body: JSON.stringify({ items_carried_out: itemsCarriedOut }),
     });
     if (!response.ok) {
       const errorData = await response.json();

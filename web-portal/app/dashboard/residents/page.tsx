@@ -11,24 +11,41 @@ import {
   Shield, 
   X, 
   Loader2, 
-  CheckCircle 
+  CheckCircle,
+  KeyRound,
+  Pencil,
+  MapPin
 } from "lucide-react";
-import { userService, User, UserCreate } from "@/services/userService";
+import { userService, User, UserCreate, UserUpdate } from "@/services/userService";
+import { authService } from "@/services/authService";
 
 export default function ResidentsPage() {
   const [residents, setResidents] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [newResetPassword, setNewResetPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<UserCreate>({
     email: "",
     password: "",
     full_name: "",
     phone_number: "",
+    house_address: "",
     role: "resident"
+  });
+
+  const [editFormData, setEditFormData] = useState<UserUpdate>({
+    full_name: "",
+    phone_number: "",
+    house_address: "",
+    email: ""
   });
 
   useEffect(() => {
@@ -60,6 +77,7 @@ export default function ResidentsPage() {
         password: "",
         full_name: "",
         phone_number: "",
+        house_address: "",
         role: "resident"
       });
     } catch (err: any) {
@@ -69,7 +87,61 @@ export default function ResidentsPage() {
     }
   };
 
-  const filteredResidents = residents.filter(resident => 
+  const openEditModal = (user: User) => {
+    setSelectedUser(user);
+    setEditFormData({
+      full_name: user.full_name,
+      phone_number: user.phone_number || "",
+      house_address: user.house_address || "",
+      email: user.email
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await userService.updateUser(selectedUser.id, editFormData);
+      await fetchResidents();
+      setShowEditModal(false);
+      setSelectedUser(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to update resident");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    
+    setIsSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await authService.resetPassword(selectedUser.id, newResetPassword);
+      setSuccessMessage("Password reset successfully");
+      setTimeout(() => {
+        setShowResetModal(false);
+        setSuccessMessage(null);
+        setNewResetPassword("");
+        setSelectedUser(null);
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || "Failed to reset password");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filteredResidents = residents.filter(resident =>  
     resident.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     resident.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     resident.phone_number?.includes(searchQuery)
@@ -116,6 +188,7 @@ export default function ResidentsPage() {
               <tr className="bg-slate-950/50 border-b border-slate-800">
                 <th className="p-6 text-sm font-semibold text-slate-400 uppercase tracking-wider">Resident</th>
                 <th className="p-6 text-sm font-semibold text-slate-400 uppercase tracking-wider">Contact</th>
+                <th className="p-6 text-sm font-semibold text-slate-400 uppercase tracking-wider">Address</th>
                 <th className="p-6 text-sm font-semibold text-slate-400 uppercase tracking-wider">Status</th>
                 <th className="p-6 text-sm font-semibold text-slate-400 uppercase tracking-wider">Joined</th>
                 <th className="p-6 text-sm font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
@@ -124,14 +197,14 @@ export default function ResidentsPage() {
             <tbody className="divide-y divide-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="p-12 text-center text-slate-400">
+                  <td colSpan={6} className="p-12 text-center text-slate-400">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
                     Loading residents...
                   </td>
                 </tr>
               ) : filteredResidents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-12 text-center text-slate-400">
+                  <td colSpan={6} className="p-12 text-center text-slate-400">
                     No residents found.
                   </td>
                 </tr>
@@ -164,6 +237,12 @@ export default function ResidentsPage() {
                       </div>
                     </td>
                     <td className="p-6">
+                       <div className="flex items-center gap-2 text-slate-400 text-sm">
+                        <MapPin className="w-4 h-4" />
+                        {resident.house_address || "N/A"}
+                      </div>
+                    </td>
+                    <td className="p-6">
                       {resident.is_active ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                           <CheckCircle className="w-3 h-3" />
@@ -178,9 +257,23 @@ export default function ResidentsPage() {
                     <td className="p-6 text-slate-400 text-sm mono">
                       {new Date(resident.created_at).toLocaleDateString()}
                     </td>
-                    <td className="p-6">
-                      <button className="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors">
-                        <MoreVertical className="w-5 h-5" />
+                    <td className="p-6 flex items-center gap-2">
+                      <button 
+                        onClick={() => openEditModal(resident)}
+                        className="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors"
+                        title="Edit Resident"
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setSelectedUser(resident);
+                          setShowResetModal(true);
+                        }}
+                        className="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors"
+                        title="Reset Password"
+                      >
+                        <KeyRound className="w-5 h-5" />
                       </button>
                     </td>
                   </tr>
@@ -190,6 +283,79 @@ export default function ResidentsPage() {
           </table>
         </div>
       </div>
+
+      {/* Reset Password Modal */}
+      {showResetModal && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => {
+                setShowResetModal(false);
+                setSelectedUser(null);
+                setError(null);
+                setSuccessMessage(null);
+              }}
+              className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-2xl font-bold text-white mb-2">Reset Password</h2>
+            <p className="text-slate-400 mb-6">Reset password for {selectedUser.full_name}</p>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              {error && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+              {successMessage && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
+                  {successMessage}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">New Password</label>
+                <input
+                  type="text"
+                  value={newResetPassword}
+                  onChange={(e) => setNewResetPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  required
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetModal(false);
+                    setSelectedUser(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-semibold shadow-lg shadow-cyan-600/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    "Reset Password"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add Resident Modal */}
       {showAddModal && (
@@ -233,6 +399,17 @@ export default function ResidentsPage() {
                     placeholder="+1 234..."
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-400">House Address</label>
+                <input
+                  type="text"
+                  value={formData.house_address}
+                  onChange={(e) => setFormData({...formData, house_address: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  placeholder="Block A, Unit 123"
+                />
               </div>
 
               <div className="space-y-2">
@@ -318,6 +495,105 @@ export default function ResidentsPage() {
                     </span>
                   ) : (
                     "Create User"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Resident Modal */}
+      {showEditModal && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => {
+                setShowEditModal(false);
+                setSelectedUser(null);
+              }}
+              className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white rounded-full hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-2xl font-bold text-white mb-6">Edit Resident</h2>
+
+            <form onSubmit={handleUpdate} className="space-y-4">
+              {error && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Full Name</label>
+                  <input
+                    type="text"
+                    value={editFormData.full_name}
+                    onChange={(e) => setEditFormData({...editFormData, full_name: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editFormData.phone_number}
+                    onChange={(e) => setEditFormData({...editFormData, phone_number: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                    placeholder="+1 234..."
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-400">House Address</label>
+                <input
+                  type="text"
+                  value={editFormData.house_address}
+                  onChange={(e) => setEditFormData({...editFormData, house_address: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  placeholder="Block A, Unit 123"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-400">Email Address</label>
+                <input
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  placeholder="john@example.com"
+                />
+              </div>
+
+              <div className="pt-4 flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedUser(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-medium shadow-lg shadow-cyan-600/20 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Updating...
+                    </span>
+                  ) : (
+                    "Update User"
                   )}
                 </button>
               </div>

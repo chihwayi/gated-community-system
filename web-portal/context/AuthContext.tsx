@@ -7,7 +7,7 @@ import { authService, User } from '@/services/authService';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (token: string) => Promise<void>;
+  login: (token: string, newUser?: User, shouldRedirect?: boolean) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -24,6 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (user && !user.is_password_changed && pathname !== '/change-password') {
+      router.replace('/change-password');
+    }
+  }, [user, pathname, router]);
+
   const checkAuth = async () => {
     try {
       const token = authService.getToken();
@@ -39,16 +45,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (token: string) => {
+  const login = async (token: string, newUser?: User, shouldRedirect: boolean = true) => {
     authService.setToken(token);
-    const userData = await authService.getCurrentUser(token);
+    let userData = newUser;
+    if (!userData) {
+      userData = await authService.getCurrentUser(token);
+    }
     setUser(userData);
     
+    // Allow useEffect to handle the redirect if password change is needed
+    if (!userData.is_password_changed) {
+      return;
+    }
+
+    if (!shouldRedirect) {
+      return;
+    }
+    
     // Redirect based on role
-    if (userData.role === 'admin') router.push('/dashboard');
-    else if (userData.role === 'resident') router.push('/resident');
-    else if (userData.role === 'guard') router.push('/security');
-    else router.push('/');
+    if (userData.role === 'admin') router.replace('/dashboard');
+    else if (userData.role === 'resident') router.replace('/resident');
+    else if (userData.role === 'guard') router.replace('/security');
+    else router.replace('/');
   };
 
   const logout = () => {
