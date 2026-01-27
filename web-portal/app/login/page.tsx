@@ -66,7 +66,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 mb-4 shadow-lg shadow-cyan-500/20 overflow-hidden">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-accent to-brand-primary mb-4 shadow-lg shadow-brand-accent/20 overflow-hidden">
             {tenant?.logo_url ? (
                 <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
             ) : (
@@ -91,13 +91,13 @@ export default function LoginPage() {
                       <label className="text-sm font-medium text-slate-300 ml-1">Email Address</label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                          <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-brand-accent transition-colors" />
                         </div>
                         <input
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
+                          className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-accent/40 focus:border-brand-accent/40 transition-all"
                           placeholder="name@example.com"
                           required
                         />
@@ -107,17 +107,17 @@ export default function LoginPage() {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center ml-1">
                         <label className="text-sm font-medium text-slate-300">Password</label>
-                        <a href="#" className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">Forgot password?</a>
+                        <a href="#" className="text-xs text-brand-accent hover:text-cyan-300 transition-colors">Forgot password?</a>
                       </div>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                          <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-brand-accent transition-colors" />
                         </div>
                         <input
                           type="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
+                          className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-accent/40 focus:border-brand-accent/40 transition-all"
                           placeholder="••••••••"
                           required
                         />
@@ -129,13 +129,13 @@ export default function LoginPage() {
                   <label className="text-sm font-medium text-slate-300 ml-1">Two-Factor Authentication Code</label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <ShieldCheck className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                      <ShieldCheck className="h-5 w-5 text-slate-500 group-focus-within:text-brand-accent transition-colors" />
                     </div>
                     <input
                       type="text"
                       value={mfaToken}
                       onChange={(e) => setMfaToken(e.target.value)}
-                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
+                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-accent/40 focus:border-brand-accent/40 transition-all"
                       placeholder="123456"
                       required
                       autoFocus
@@ -148,7 +148,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center py-4 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-2xl font-semibold shadow-lg shadow-cyan-600/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100 group"
+              className="w-full flex items-center justify-center py-4 px-4 bg-gradient-to-r from-brand-accent to-brand-primary hover:opacity-90 text-white rounded-2xl font-semibold shadow-lg shadow-brand-accent/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100 group"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -163,7 +163,7 @@ export default function LoginPage() {
 
           <div className="mt-8 pt-8 border-t border-slate-800 text-center">
             <p className="text-slate-500 text-sm">
-              Need access? <a href="#" className="text-cyan-400 font-medium hover:text-cyan-300 transition-colors">Contact Estate Office</a>
+              Need access? <a href="#" className="text-brand-accent font-medium hover:text-cyan-300 transition-colors">Contact Estate Office</a>
             </p>
           </div>
         </div>

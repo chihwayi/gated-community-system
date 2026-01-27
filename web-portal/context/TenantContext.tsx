@@ -48,7 +48,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 // Apply branding colors if available
                 if (data.primary_color) {
                     document.documentElement.style.setProperty('--primary-brand', data.primary_color);
-                    // You might need to update other variables or specific classes dynamically
+                }
+                if (data.accent_color) {
+                    document.documentElement.style.setProperty('--accent-brand', data.accent_color);
                 }
             } catch (err) {
                 console.error("Failed to fetch tenant:", err);
