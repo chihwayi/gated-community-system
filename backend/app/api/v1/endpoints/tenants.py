@@ -5,10 +5,29 @@ from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.crud import crud_tenant
-from app.models.all_models import User
+from app.models.all_models import User, Tenant as TenantModel
 from app.schemas.tenant import Tenant, TenantCreate, TenantUpdate
 
 router = APIRouter()
+
+
+@router.get("/stats", response_model=dict)
+def get_platform_stats(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Get platform-wide statistics.
+    """
+    total_tenants = db.query(TenantModel).count()
+    active_tenants = db.query(TenantModel).filter(TenantModel.is_active == True).count()
+    total_users = db.query(User).count()
+    
+    return {
+        "total_tenants": total_tenants,
+        "active_tenants": active_tenants,
+        "total_users": total_users
+    }
 
 
 @router.get("/", response_model=List[Tenant])

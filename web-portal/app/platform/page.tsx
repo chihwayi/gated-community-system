@@ -8,16 +8,18 @@ export default function PlatformDashboard() {
   const [stats, setStats] = useState({
     totalTenants: 0,
     activeTenants: 0,
+    totalUsers: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const tenants = await tenantService.getAllTenants();
+        const data = await tenantService.getPlatformStats();
         setStats({
-          totalTenants: tenants.length,
-          activeTenants: tenants.filter(t => t.is_active).length,
+          totalTenants: data.total_tenants,
+          activeTenants: data.active_tenants,
+          totalUsers: data.total_users,
         });
       } catch (error) {
         console.error('Failed to fetch stats', error);
@@ -45,7 +47,7 @@ export default function PlatformDashboard() {
     },
     {
       name: 'Total Users',
-      value: '-', // Needs a new endpoint to aggregate users across tenants
+      value: stats.totalUsers,
       icon: Users,
       color: 'text-purple-400',
       bg: 'bg-purple-500/10',

@@ -40,6 +40,11 @@ export const tenantService = {
     },
 
     // Super Admin methods
+    getPlatformStats: async (): Promise<{ total_tenants: number; active_tenants: number; total_users: number }> => {
+        const response = await api.get<{ total_tenants: number; active_tenants: number; total_users: number }>('/tenants/stats');
+        return response.data;
+    },
+
     getAllTenants: async (skip = 0, limit = 100): Promise<Tenant[]> => {
         const response = await api.get<Tenant[]>(`/tenants/?skip=${skip}&limit=${limit}`);
         return response.data;
