@@ -19,6 +19,7 @@ import {
 import { visitorService, Visitor } from "@/services/visitorService";
 import { staffService, Staff } from "@/services/staffService";
 import { incidentService, Incident } from "@/services/incidentService";
+import { securityService } from "@/services/securityService";
 import { useAuth } from "@/context/AuthContext";
 
 export default function SecurityGuardPage() {
@@ -131,11 +132,11 @@ export default function SecurityGuardPage() {
         });
         setStaffStatus('checked_in');
       }
-    } catch (error) {
+    } catch (error: any) {
       setNotification({
         type: 'error',
         title: 'Check-In Failed',
-        message: 'There was an error processing the check-in.'
+        message: error.message || 'There was an error processing the check-in.'
       });
     } finally {
       setActionLoading(false);
@@ -193,6 +194,34 @@ export default function SecurityGuardPage() {
     });
   };
 
+  const handleLogPatrol = async () => {
+    setActionLoading(true);
+    if (!navigator.geolocation) {
+      setNotification({ type: 'error', message: "Geolocation is not supported by your browser" });
+      setActionLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          await securityService.createPatrolLog(latitude, longitude, "Regular patrol check");
+          setNotification({ type: 'success', message: "Patrol logged successfully" });
+        } catch (error) {
+          setNotification({ type: 'error', message: "Failed to log patrol" });
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      (error) => {
+        console.error(error);
+        setNotification({ type: 'error', message: "Unable to retrieve your location" });
+        setActionLoading(false);
+      }
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-500/30 relative">
       {/* Background Gradients */}
@@ -233,6 +262,18 @@ export default function SecurityGuardPage() {
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto p-4 md:p-8 max-w-2xl">
+        
+        {/* Actions Bar */}
+        <div className="flex justify-end mb-6">
+            <button
+                onClick={handleLogPatrol}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-blue-900/20 disabled:opacity-50"
+            >
+                <MapPin className="w-5 h-5" />
+                {actionLoading ? "Logging..." : "Log Patrol"}
+            </button>
+        </div>
 
         {/* SOS Alerts */}
         {incidents.length > 0 && (

@@ -16,7 +16,8 @@ import {
   Car,
   Package,
   Vote,
-  FileText
+  FileText,
+  User
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -31,13 +32,15 @@ export default function Sidebar() {
     { name: "Parcels", href: "/dashboard/parcels", icon: Package },
     { name: "Polls", href: "/dashboard/polls", icon: Vote },
     { name: "Documents", href: "/dashboard/documents", icon: FileText },
-    { name: "Security", href: "/dashboard/guards", icon: Shield },
+    { name: "Guards", href: "/dashboard/guards", icon: Users },
+    { name: "Security", href: "/dashboard/security", icon: Shield },
     { name: "Reports", href: "/dashboard/reports", icon: FileBarChart },
     { name: "Financials", href: "/dashboard/financial", icon: CreditCard },
     { name: "Notices", href: "/dashboard/notices", icon: Bell },
     { name: "Incidents", href: "/dashboard/incidents", icon: AlertTriangle },
     { name: "Helpdesk", href: "/dashboard/tickets", icon: LifeBuoy },
     { name: "Amenities", href: "/dashboard/amenities", icon: Dumbbell },
+    { name: "Profile", href: "/dashboard/profile", icon: User },
   ];
 
   return (
@@ -48,7 +51,7 @@ export default function Sidebar() {
         </h1>
       </div>
 
-      <nav className="flex-1 px-4 space-y-2">
+      <nav className="flex-1 px-4 space-y-2 overflow-y-auto min-h-0">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;

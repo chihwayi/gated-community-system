@@ -15,6 +15,7 @@ export interface Amenity {
   status: AmenityStatus;
   open_hours?: string;
   image_url?: string;
+  display_image_url?: string;
   requires_approval: boolean;
   created_at: string;
 }

@@ -5,10 +5,12 @@ import {
   Download, 
   Loader2,
   Calendar,
-  Check
+  Check,
+  CheckCircle2
 } from "lucide-react";
 import { pollService, Poll, PollOption } from "@/services/pollService";
 import { documentService, CommunityDocument, DocumentCategory } from "@/services/documentService";
+import { useToast } from "@/context/ToastContext";
 
 export default function CommunitySection() {
   const [activeTab, setActiveTab] = useState<'polls' | 'documents'>('polls');
@@ -48,6 +50,7 @@ export default function CommunitySection() {
 }
 
 function PollsList() {
+  const { showToast } = useToast();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [votingMap, setVotingMap] = useState<{[key: number]: boolean}>({}); // pollId -> isVoting
@@ -59,8 +62,8 @@ function PollsList() {
   const loadPolls = async () => {
     setIsLoading(true);
     try {
-      const data = await pollService.getPolls();
-      setPolls(data);
+      const response = await pollService.getPolls();
+      setPolls(response.data);
     } catch (error) {
       console.error("Failed to load polls", error);
     } finally {
@@ -73,9 +76,10 @@ function PollsList() {
     try {
       await pollService.vote(pollId, optionId);
       await loadPolls(); // Reload to get new counts
+      showToast("Vote recorded successfully", "success");
     } catch (error) {
       console.error("Failed to vote", error);
-      alert("Failed to record vote");
+      showToast("Failed to record vote", "error");
     } finally {
       setVotingMap(prev => ({...prev, [pollId]: false}));
     }
@@ -202,8 +206,8 @@ function DocumentsList() {
   const loadDocuments = async () => {
     setIsLoading(true);
     try {
-      const data = await documentService.getDocuments();
-      setDocuments(data);
+      const response = await documentService.getDocuments();
+      setDocuments(response.data);
     } catch (error) {
       console.error("Failed to load documents", error);
     } finally {

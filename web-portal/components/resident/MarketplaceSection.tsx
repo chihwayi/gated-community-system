@@ -3,15 +3,21 @@ import { Plus, Search, Filter, DollarSign, Tag, Image as ImageIcon, Edit, Trash,
 import { marketplaceService, MarketplaceItem, CreateItemData } from '@/services/marketplaceService';
 import { useAuth } from '@/context/AuthContext';
 import { API_CONFIG } from '@/lib/api-config';
+import { useToast } from '@/context/ToastContext';
+import { useConfirmation } from '@/context/ConfirmationContext';
 
 export default function MarketplaceSection() {
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [myItems, setMyItems] = useState<MarketplaceItem[]>([]);
   const [view, setView] = useState<'browse' | 'selling'>('browse');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [formData, setFormData] = useState<CreateItemData>({
     title: '',
     description: '',
@@ -28,11 +34,21 @@ export default function MarketplaceSection() {
     }
   }, [view, categoryFilter]);
 
-  const getImageUrl = (path: string) => {
+  const getImageUrl = (item: MarketplaceItem, index: number = 0) => {
+    if (item.image_urls && item.image_urls.length > index) {
+      return item.image_urls[index];
+    }
+    // Fallback if no presigned URL (should not happen for new items)
+    const path = item.images?.[index];
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    const baseUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '');
-    return `${baseUrl}${path}`;
+    // If it's an object key without presigned url (legacy or sync issue), we can't easily display it 
+    // without fetching it, but let's try assuming it might be a static path if it starts with /static
+    if (path.startsWith('/static')) {
+        const baseUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '');
+        return `${baseUrl}${path}`;
+    }
+    return ''; // Can't display raw object key
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,12 +57,16 @@ export default function MarketplaceSection() {
       try {
         const file = e.target.files[0];
         const response = await marketplaceService.uploadImage(file);
+        // We store the object_key in the form data for submission
         setFormData(prev => ({
           ...prev,
-          images: [...prev.images, response.data.url]
+          images: [...prev.images, response.data.object_key]
         }));
+        // Store URL for preview
+        setPreviewImages(prev => [...prev, response.data.url]);
       } catch (error) {
         console.error('Failed to upload image', error);
+        showToast('Failed to upload image', 'error');
       } finally {
         setIsUploading(false);
       }
@@ -58,6 +78,7 @@ export default function MarketplaceSection() {
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }));
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
   };
 
 
@@ -94,8 +115,11 @@ export default function MarketplaceSection() {
         condition: 'Used',
         images: []
       });
+      setPreviewImages([]);
+      showToast('Item listed successfully!', 'success');
     } catch (error) {
       console.error('Failed to create item', error);
+      showToast('Failed to create item', 'error');
     }
   };
 
@@ -166,7 +190,7 @@ export default function MarketplaceSection() {
           <div key={item.id} className="bg-slate-900/50 rounded-xl shadow-sm border border-white/5 overflow-hidden hover:border-white/10 transition-all">
             <div className="h-48 bg-slate-800 flex items-center justify-center relative group">
               {item.images && item.images.length > 0 ? (
-                <img src={getImageUrl(item.images[0])} alt={item.title} className="w-full h-full object-cover" />
+                <img src={getImageUrl(item, 0)} alt={item.title} className="w-full h-full object-cover" />
               ) : (
                 <ImageIcon size={48} className="text-slate-600 group-hover:text-slate-500 transition-colors" />
               )}
@@ -276,9 +300,9 @@ export default function MarketplaceSection() {
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-1">Images</label>
                 <div className="grid grid-cols-4 gap-4 mb-2">
-                  {formData.images.map((img, index) => (
+                  {previewImages.map((imgUrl, index) => (
                     <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-slate-800 border border-white/10 group">
-                      <img src={getImageUrl(img)} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
+                      <img src={imgUrl} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
@@ -315,7 +339,7 @@ export default function MarketplaceSection() {
                 type="submit"
                 className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-semibold shadow-lg shadow-cyan-900/20 transition-all active:scale-[0.98]"
               >
-                Post Listing
+                {editingItem ? 'Update Listing' : 'Post Listing'}
               </button>
             </form>
           </div>

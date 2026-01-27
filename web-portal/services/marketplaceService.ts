@@ -10,6 +10,7 @@ export interface MarketplaceItem {
   condition: string;
   status: 'available' | 'pending' | 'sold';
   images: string[];
+  image_urls?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +66,6 @@ export const marketplaceService = {
   uploadImage: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post<{url: string}>('/utils/upload', formData);
+    return api.post<{url: string, object_key: string}>('/upload/', formData);
   }
 };

@@ -20,8 +20,8 @@ export default function ParcelsSection() {
   const loadParcels = async () => {
     setIsLoading(true);
     try {
-      const data = await parcelService.getMyParcels();
-      setParcels(data);
+      const response = await parcelService.getMyParcels();
+      setParcels(response.data);
     } catch (error) {
       console.error("Failed to load parcels", error);
     } finally {
@@ -72,6 +72,17 @@ export default function ParcelsSection() {
                           READY TO PICKUP
                         </span>
                       </div>
+                      
+                      {parcel.display_image_url && (
+                        <div className="mb-6 rounded-xl overflow-hidden h-40 relative">
+                          <img 
+                            src={parcel.display_image_url} 
+                            alt="Parcel" 
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
+                        </div>
+                      )}
                       
                       <div className="mb-6">
                         <p className="text-slate-400 text-sm mb-1">Pickup Code</p>

@@ -18,8 +18,12 @@ import {
 } from "lucide-react";
 import { amenityService, Amenity, AmenityCreate, AmenityStatus } from "@/services/amenityService";
 import { bookingService, Booking } from "@/services/bookingService";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
 
 export default function AmenitiesPage() {
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [activeTab, setActiveTab] = useState<'amenities' | 'bookings'>('amenities');
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -71,22 +75,29 @@ export default function AmenitiesPage() {
       }
       setIsModalOpen(false);
       loadData();
+      showToast(editingAmenity ? "Amenity updated successfully" : "Amenity created successfully", "success");
     } catch (error) {
       console.error("Failed to save amenity", error);
-      alert("Failed to save amenity");
+      showToast("Failed to save amenity", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this amenity?")) return;
+    if (!(await confirm({
+      title: "Delete Amenity",
+      message: "Are you sure you want to delete this amenity?",
+      confirmLabel: "Delete",
+      variant: "danger"
+    }))) return;
     try {
       await amenityService.deleteAmenity(id);
       loadData();
+      showToast("Amenity deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete amenity", error);
-      alert("Failed to delete amenity");
+      showToast("Failed to delete amenity", "error");
     }
   };
 
@@ -120,9 +131,10 @@ export default function AmenitiesPage() {
     try {
       await bookingService.updateBooking(bookingId, status);
       loadData();
+      showToast("Booking updated successfully", "success");
     } catch (error) {
       console.error("Failed to update booking", error);
-      alert("Failed to update booking");
+      showToast("Failed to update booking", "error");
     }
   };
 

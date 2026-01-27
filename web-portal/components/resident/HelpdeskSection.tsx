@@ -12,26 +12,32 @@ import {
   Volume2,
   Trash2,
   Leaf,
-  MoreHorizontal
+  MoreHorizontal,
+  Image as ImageIcon,
+  Upload
 } from "lucide-react";
 import { ticketService, Ticket, TicketCreate, TicketCategory, TicketPriority } from "@/services/ticketService";
+import { useToast } from "@/context/ToastContext";
+import { uploadService } from "@/services/uploadService";
 
 export default function HelpdeskSection() {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'open' | 'closed'>('open');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [ticketForm, setTicketForm] = useState<TicketCreate>({
     title: "",
     description: "",
     category: "other" as TicketCategory,
     priority: "medium" as TicketPriority,
-    location: ""
+    location: "",
+    image_url: ""
   });
 
   useEffect(() => {
@@ -59,23 +65,43 @@ export default function HelpdeskSection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
 
     try {
       await ticketService.createTicket(ticketForm);
       await loadData();
-      setIsSuccess(true);
+      showToast("Ticket submitted successfully!", "success");
+      setShowCreateModal(false);
       setTicketForm({
         title: "",
         description: "",
         category: "other" as TicketCategory,
         priority: "medium" as TicketPriority,
-        location: ""
+        location: "",
+        image_url: ""
       });
+      setPreviewImage(null);
     } catch (err: any) {
-      setError(err.message || "Failed to create ticket");
+      showToast(err.message || "Failed to create ticket", "error");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setIsUploading(true);
+      try {
+        const file = e.target.files[0];
+        const response = await uploadService.uploadFile(file);
+        setTicketForm(prev => ({ ...prev, image_url: response.object_key }));
+        setPreviewImage(response.url);
+        showToast("Image uploaded successfully", "success");
+      } catch (error) {
+        console.error('Failed to upload image', error);
+        showToast('Failed to upload image', 'error');
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -139,7 +165,7 @@ export default function HelpdeskSection() {
         </div>
 
         <button
-          onClick={() => { setShowCreateModal(true); setIsSuccess(false); setError(null); }}
+          onClick={() => { setShowCreateModal(true); setPreviewImage(null); }}
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-semibold shadow-lg shadow-cyan-900/20 active:scale-95 transition-all text-sm"
         >
           <Plus className="w-4 h-4" />
@@ -159,7 +185,7 @@ export default function HelpdeskSection() {
               <div className="col-span-full p-8 text-center text-slate-500">No tickets found</div>
             ) : (
               filteredTickets.map(ticket => (
-                <div key={ticket.id} className="p-5 rounded-xl bg-slate-950/50 border border-white/5 hover:border-cyan-500/30 transition-all group">
+                <div key={ticket.id} className="p-5 rounded-xl bg-slate-950/50 border border-white/5 hover:border-cyan-500/30 transition-all group overflow-hidden">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-2">
                       <div className="p-2 rounded-lg bg-slate-900 text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
@@ -174,6 +200,17 @@ export default function HelpdeskSection() {
                     </span>
                   </div>
                   
+                  {ticket.display_image_url && (
+                    <div className="h-32 -mx-5 mb-4 relative overflow-hidden bg-slate-900">
+                      <img 
+                        src={ticket.display_image_url} 
+                        alt={ticket.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
+                    </div>
+                  )}
+
                   <h3 className="text-lg font-semibold text-slate-200 mb-2">{ticket.title}</h3>
                   <p className="text-slate-400 text-sm line-clamp-2 mb-4">{ticket.description}</p>
                   
@@ -191,7 +228,7 @@ export default function HelpdeskSection() {
       {/* Create Ticket Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative">
+          <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setShowCreateModal(false)} 
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/5 text-slate-500 hover:text-white transition-colors z-10"
@@ -199,24 +236,6 @@ export default function HelpdeskSection() {
               <X className="w-5 h-5" />
             </button>
             
-            {isSuccess ? (
-              <div className="text-center py-8 animate-in zoom-in-50 duration-300">
-                <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle className="w-10 h-10 text-emerald-400" />
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Ticket Submitted!</h2>
-                <p className="text-slate-400 mb-8 max-w-xs mx-auto">
-                  Your issue has been reported. We'll look into it shortly.
-                </p>
-                <button 
-                  onClick={() => setShowCreateModal(false)}
-                  className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all"
-                >
-                  Close
-                </button>
-              </div>
-            ) : (
-              <>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-cyan-500/10 rounded-xl">
                 <LifeBuoy className="w-6 h-6 text-cyan-400" />
@@ -227,13 +246,6 @@ export default function HelpdeskSection() {
               </div>
             </div>
             
-            {error && (
-              <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3 text-rose-400 text-sm">
-                <AlertCircle className="w-5 h-5 shrink-0" />
-                {error}
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-400 ml-1">Title</label>
@@ -293,6 +305,39 @@ export default function HelpdeskSection() {
               </div>
 
               <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-400 ml-1">Image Attachment</label>
+                <div className="flex items-center gap-4">
+                  {previewImage ? (
+                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-white/10 group">
+                      <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => { setPreviewImage(null); setTicketForm(prev => ({ ...prev, image_url: "" })); }}
+                        className="absolute top-1 right-1 p-1 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-700 hover:border-cyan-500/50 flex flex-col items-center justify-center cursor-pointer transition-colors group bg-slate-950">
+                      <div className="p-2 bg-slate-800 rounded-full mb-1 group-hover:bg-slate-700 transition-colors">
+                        {isUploading ? (
+                          <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Upload size={16} className="text-slate-400 group-hover:text-cyan-400" />
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-500 group-hover:text-slate-400">Add Photo</span>
+                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" disabled={isUploading} />
+                    </label>
+                  )}
+                  <div className="text-xs text-slate-500 flex-1">
+                    Upload a photo to help us understand the issue better.
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-400 ml-1">Description</label>
                 <textarea 
                   required
@@ -317,8 +362,6 @@ export default function HelpdeskSection() {
                 ) : 'Submit Ticket'}
               </button>
             </form>
-            </>
-            )}
           </div>
         </div>
       )}

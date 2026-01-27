@@ -98,14 +98,9 @@ export const financialService = {
     if (!token) throw new Error('No authentication token');
 
     const response = await fetch(`${API_CONFIG.BASE_URL}/financial/bills`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: { 'Authorization': `Bearer ${token}` },
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch bills');
-    }
+    if (!response.ok) throw new Error('Failed to fetch bills');
     return response.json();
   },
 
@@ -115,20 +110,27 @@ export const financialService = {
 
     const response = await fetch(`${API_CONFIG.BASE_URL}/financial/bills`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Failed to create bill');
-    }
+    if (!response.ok) throw new Error('Failed to create bill');
     return response.json();
   },
 
+  async generateMonthlyBills(): Promise<Bill[]> {
+    const token = authService.getToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/financial/bills/generate-monthly`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to generate monthly bills');
+    }
+    return response.json();
+  },
   // Payments
   async getPayments(params?: { startDate?: string; endDate?: string }): Promise<Payment[]> {
       const token = authService.getToken();

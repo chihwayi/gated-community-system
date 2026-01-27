@@ -23,8 +23,10 @@ import {
 } from "lucide-react";
 import { ticketService, Ticket, TicketPriority, TicketStatus } from "@/services/ticketService";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 
 export default function TicketsPage() {
+  const { showToast } = useToast();
   const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,9 +79,10 @@ export default function TicketsPage() {
       await fetchTickets();
       setIsEditModalOpen(false);
       setSelectedTicket(null);
+      showToast("Ticket updated successfully", "success");
     } catch (error) {
       console.error("Failed to update ticket:", error);
-      alert("Failed to update ticket");
+      showToast("Failed to update ticket", "error");
     } finally {
       setIsUpdating(false);
     }

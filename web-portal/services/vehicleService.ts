@@ -8,6 +8,8 @@ export interface Vehicle {
   model?: string;
   color?: string;
   parking_slot?: string;
+  image_url?: string;
+  display_image_url?: string;
 }
 
 export interface VehicleCreate {
@@ -16,6 +18,7 @@ export interface VehicleCreate {
   model?: string;
   color?: string;
   parking_slot?: string;
+  image_url?: string;
 }
 
 export const vehicleService = {

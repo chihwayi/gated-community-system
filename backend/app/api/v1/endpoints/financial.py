@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.crud import crud_financial
 from app.schemas import financial as schemas
-from app.models.all_models import User, UserRole, PaymentStatus
-
-from datetime import datetime
+from app.models.all_models import User, UserRole, PaymentStatus, FeeDefinition, Bill, BillStatus
+from datetime import datetime, timedelta
+from app.core import notifications as notification_service
 
 router = APIRouter()
 
@@ -57,6 +57,65 @@ def delete_fee_definition(
     return fee
 
 # --- Bills ---
+
+@router.post("/bills/generate-monthly", response_model=List[schemas.Bill])
+async def generate_monthly_bills(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_superuser)
+) -> Any:
+    """
+    Generate monthly bills for all active residents. (Admin only)
+    """
+    # 1. Get default levy fee
+    default_fee = db.query(FeeDefinition).filter(
+        FeeDefinition.name == "Monthly Levy",
+        FeeDefinition.is_active == True
+    ).first()
+    
+    if not default_fee:
+        raise HTTPException(status_code=400, detail="Active 'Monthly Levy' fee definition not found")
+
+    # 2. Get all active residents
+    residents = db.query(User).filter(
+        User.role == UserRole.RESIDENT,
+        User.is_active == True
+    ).all()
+    
+    generated_bills = []
+    
+    # 3. Create bill for each resident if not already billed for this month
+    current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    due_date = current_month_start + timedelta(days=25) # Due on 25th
+    
+    for resident in residents:
+        bill_description = f"Monthly Levy - {current_month_start.strftime('%B %Y')}"
+        
+        # Check if bill exists for this month
+        existing_bill = db.query(Bill).filter(
+            Bill.resident_id == resident.id,
+            Bill.description == bill_description,
+            Bill.created_at >= current_month_start
+        ).first()
+        
+        if not existing_bill:
+            bill_in = schemas.BillCreate(
+                resident_id=resident.id,
+                amount=default_fee.amount,
+                description=bill_description,
+                due_date=due_date
+            )
+            bill = crud_financial.create_bill(db=db, bill=bill_in)
+            generated_bills.append(bill)
+            
+            # Send Email Notification
+            if resident.email:
+                await notification_service.send_email(
+                    to_email=resident.email,
+                    subject="New Bill Generated",
+                    body=f"Dear {resident.full_name}, your monthly levy bill for {current_month_start.strftime('%B %Y')} of ${(default_fee.amount/100):.2f} has been generated. Please view it in your dashboard."
+                )
+            
+    return generated_bills
 
 @router.post("/bills", response_model=schemas.Bill)
 def create_bill(

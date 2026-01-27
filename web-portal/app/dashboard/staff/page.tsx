@@ -15,8 +15,12 @@ import {
 } from "lucide-react";
 import { staffService, Staff, StaffStatus, StaffType } from "@/services/staffService";
 import { formatDate } from "@/lib/utils";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
 
 export default function StaffPage() {
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -38,28 +42,40 @@ export default function StaffPage() {
   };
 
   const handleStatusUpdate = async (id: number, status: StaffStatus) => {
-    if (!confirm(`Are you sure you want to change status to ${status}?`)) return;
+    if (!(await confirm({
+      title: "Update Status",
+      message: `Are you sure you want to change status to ${status}?`,
+      confirmLabel: "Update",
+      variant: "warning"
+    }))) return;
     
     setIsSubmitting(true);
     try {
       await staffService.updateStaff(id, { status });
       await fetchStaff();
+      showToast(`Staff status updated to ${status}`, "success");
     } catch (error) {
       console.error("Failed to update staff status:", error);
-      alert("Failed to update staff status");
+      showToast("Failed to update staff status", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this staff member? This cannot be undone.")) return;
+    if (!(await confirm({
+      title: "Delete Staff Member",
+      message: "Are you sure you want to delete this staff member? This cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "danger"
+    }))) return;
     try {
       await staffService.deleteStaff(id);
       fetchStaff();
+      showToast("Staff deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete staff:", error);
-      alert("Failed to delete staff");
+      showToast("Failed to delete staff", "error");
     }
   };
 

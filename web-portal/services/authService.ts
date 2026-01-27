@@ -4,16 +4,22 @@ export interface User {
   id: number;
   email: string;
   full_name: string;
+  phone_number?: string;
   role: 'admin' | 'resident' | 'guard';
   is_active: boolean;
   is_password_changed: boolean;
   created_at: string;
   house_address?: string;
+  mfa_enabled?: boolean;
+  profile_picture?: string;
+  profile_picture_url?: string;
 }
 
-interface LoginResponse {
-  access_token: string;
-  token_type: string;
+export interface LoginResponse {
+  access_token?: string;
+  token_type?: string;
+  mfa_required?: boolean;
+  temp_token?: string;
 }
 
 export const authService = {
@@ -30,6 +36,23 @@ export const authService = {
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.detail || 'Login failed');
+    }
+
+    return response.json();
+  },
+
+  async mfaLogin(tempToken: string, code: string): Promise<LoginResponse> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/mfa/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ temp_token: tempToken, token: code }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'MFA Login failed');
     }
 
     return response.json();

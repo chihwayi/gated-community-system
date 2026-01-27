@@ -3,8 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { Vote, Search, Plus, Trash2, Calendar, CheckCircle2, BarChart2, X } from "lucide-react";
 import { pollService, Poll, PollStatus } from "@/services/pollService";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
 
 export default function PollsPage() {
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -35,7 +39,7 @@ export default function PollsPage() {
     e.preventDefault();
     const validOptions = newPoll.options.filter(o => o.trim() !== "");
     if (validOptions.length < 2) {
-      alert("Please provide at least 2 options");
+      showToast("Please provide at least 2 options", "error");
       return;
     }
 
@@ -49,20 +53,27 @@ export default function PollsPage() {
       setShowCreateModal(false);
       setNewPoll({ question: "", description: "", end_date: "", options: ["", ""] });
       loadPolls();
+      showToast("Poll created successfully", "success");
     } catch (error) {
       console.error("Failed to create poll", error);
-      alert("Failed to create poll");
+      showToast("Failed to create poll", "error");
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this poll? This action cannot be undone.")) return;
+    if (!(await confirm({
+      title: "Delete Poll",
+      message: "Are you sure you want to delete this poll? This action cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "danger"
+    }))) return;
     try {
       await pollService.deletePoll(id);
       loadPolls();
+      showToast("Poll deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete poll", error);
-      alert("Failed to delete poll");
+      showToast("Failed to delete poll", "error");
     }
   };
 

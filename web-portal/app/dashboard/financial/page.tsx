@@ -21,9 +21,13 @@ import {
 import { financialService, Bill, Payment, FeeDefinition } from "@/services/financialService";
 import { userService, User } from "@/services/userService";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
 
 export default function FinancialPage() {
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [activeTab, setActiveTab] = useState<'bills' | 'payments' | 'fees'>('bills');
   
   // Data States
@@ -53,6 +57,25 @@ export default function FinancialPage() {
     description: "",
     due_date: ""
   });
+
+  const handleGenerateMonthlyBills = async () => {
+    if (!(await confirm({
+      title: "Generate Bills",
+      message: "Are you sure you want to generate monthly bills for all active residents?",
+      confirmLabel: "Generate",
+      variant: "warning"
+    }))) return;
+    setIsSubmitting(true);
+    try {
+        await financialService.generateMonthlyBills();
+        await loadData();
+        showToast("Monthly bills generated successfully", "success");
+    } catch (err: any) {
+        showToast(err.message || "Failed to generate bills", "error");
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
 
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
@@ -219,6 +242,15 @@ export default function FinancialPage() {
         </div>
         <div className="flex gap-2">
             {user?.role === 'admin' && activeTab === 'bills' && (
+            <>
+            <button
+                onClick={handleGenerateMonthlyBills}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold shadow-lg shadow-purple-600/20 active:scale-95 transition-all"
+            >
+                <Calendar className="w-5 h-5" />
+                Generate Monthly
+            </button>
             <button
                 onClick={() => setShowCreateBillModal(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-semibold shadow-lg shadow-cyan-600/20 active:scale-95 transition-all"
@@ -226,6 +258,7 @@ export default function FinancialPage() {
                 <Plus className="w-5 h-5" />
                 Create Bill
             </button>
+            </>
             )}
             {user?.role === 'admin' && activeTab === 'fees' && (
             <button

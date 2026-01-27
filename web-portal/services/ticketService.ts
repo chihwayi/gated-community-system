@@ -14,6 +14,7 @@ export interface Ticket {
   status: TicketStatus;
   location?: string;
   image_url?: string;
+  display_image_url?: string;
   created_by_id: number;
   assigned_to_id?: number;
   created_at: string;

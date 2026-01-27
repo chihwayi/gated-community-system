@@ -1,20 +1,28 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Package, Search, Plus, Check, X, Clock, User as UserIcon } from "lucide-react";
+import { Package, Search, Plus, Check, X, Clock, User as UserIcon, Image as ImageIcon, Loader2 } from "lucide-react";
 import { parcelService, Parcel, ParcelStatus } from "@/services/parcelService";
 import { userService, User } from "@/services/userService";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
+import { uploadService } from "@/services/uploadService";
 
 export default function ParcelsPage() {
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [parcels, setParcels] = useState<Parcel[]>([]);
   const [residents, setResidents] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [newParcel, setNewParcel] = useState({
     recipient_id: "",
     carrier: "",
-    notes: ""
+    notes: "",
+    image_url: ""
   });
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -44,6 +52,24 @@ export default function ParcelsPage() {
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setIsUploading(true);
+      try {
+        const file = e.target.files[0];
+        const response = await uploadService.uploadFile(file);
+        setNewParcel(prev => ({ ...prev, image_url: response.object_key }));
+        setPreviewImage(response.url);
+        showToast("Image uploaded successfully", "success");
+      } catch (error) {
+        console.error('Failed to upload image', error);
+        showToast('Failed to upload image', 'error');
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
   const handleReceiveParcel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newParcel.recipient_id) return;
@@ -52,25 +78,35 @@ export default function ParcelsPage() {
       await parcelService.createParcel({
         recipient_id: parseInt(newParcel.recipient_id),
         carrier: newParcel.carrier,
-        notes: newParcel.notes
+        notes: newParcel.notes,
+        image_url: newParcel.image_url
       });
       setShowReceiveModal(false);
-      setNewParcel({ recipient_id: "", carrier: "", notes: "" });
+      setNewParcel({ recipient_id: "", carrier: "", notes: "", image_url: "" });
+      setPreviewImage(null);
       loadParcels();
+      showToast("Parcel received successfully", "success");
     } catch (error) {
       console.error("Failed to receive parcel", error);
-      alert("Failed to receive parcel");
+      showToast("Failed to receive parcel", "error");
     }
   };
 
   const handleCollect = async (id: number) => {
-    if (!confirm("Confirm parcel collection?")) return;
+    if (!(await confirm({
+      title: "Confirm Collection",
+      message: "Are you sure you want to mark this parcel as collected?",
+      confirmLabel: "Collect",
+      variant: "info"
+    }))) return;
+
     try {
       await parcelService.markCollected(id);
       loadParcels();
+      showToast("Parcel marked as collected", "success");
     } catch (error) {
       console.error("Failed to mark collected", error);
-      alert("Failed to mark collected");
+      showToast("Failed to mark collected", "error");
     }
   };
 
@@ -249,6 +285,48 @@ export default function ParcelsPage() {
                   onChange={(e) => setNewParcel({...newParcel, carrier: e.target.value})}
                   className="w-full px-4 py-2 bg-slate-950 border border-white/10 rounded-lg text-slate-200 focus:outline-none focus:border-cyan-500/50"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-400">Parcel Image (Optional)</label>
+                <div className="flex items-center gap-4">
+                  {previewImage ? (
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden group">
+                      <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewImage(null);
+                          setNewParcel({ ...newParcel, image_url: "" });
+                        }}
+                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-6 h-6 text-white" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="w-20 h-20 border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors group">
+                      {isUploading ? (
+                        <Loader2 className="w-6 h-6 text-cyan-500 animate-spin" />
+                      ) : (
+                        <>
+                          <ImageIcon className="w-6 h-6 text-slate-500 group-hover:text-cyan-500 transition-colors" />
+                          <span className="text-[10px] text-slate-500 group-hover:text-cyan-500">Upload</span>
+                        </>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        disabled={isUploading}
+                      />
+                    </label>
+                  )}
+                  <div className="text-xs text-slate-500 max-w-[200px]">
+                    Take a photo of the package or shipping label for easier identification.
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">

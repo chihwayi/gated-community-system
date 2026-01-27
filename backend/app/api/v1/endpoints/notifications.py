@@ -5,8 +5,36 @@ from app.api import deps
 from app.crud import crud_notification
 from app.schemas import notification as schemas
 from app.models.all_models import User
+from app.core.communications import communication_service
 
 router = APIRouter()
+
+@router.post("/send-test", response_model=Any)
+def send_test_notification(
+    type: str,
+    target: str,
+    message: str,
+    current_user: User = Depends(deps.get_current_active_superuser)
+) -> Any:
+    """
+    Test external communication (Admin only).
+    Type: sms, email, push
+    """
+    if type == "sms":
+        communication_service.send_sms(target, message)
+    elif type == "email":
+        communication_service.send_email(target, "Test Notification", message)
+    elif type == "push":
+        # Target assumed to be user_id for push
+        try:
+            user_id = int(target)
+            communication_service.send_push_notification(user_id, "Test Notification", message)
+        except ValueError:
+             raise HTTPException(status_code=400, detail="Target must be user ID for push")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid type")
+        
+    return {"message": f"Test {type} sent"}
 
 @router.get("/", response_model=List[schemas.Notification])
 def read_notifications(

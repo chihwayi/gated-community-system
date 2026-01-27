@@ -13,6 +13,7 @@ export interface Parcel {
   status: ParcelStatus;
   pickup_code?: string;
   image_url?: string;
+  display_image_url?: string;
   notes?: string;
   created_at: string;
   collected_at?: string;

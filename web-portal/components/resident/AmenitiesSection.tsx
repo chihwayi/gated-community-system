@@ -13,8 +13,10 @@ import {
 } from "lucide-react";
 import { amenityService, Amenity, AmenityStatus } from "@/services/amenityService";
 import { bookingService, Booking, BookingStatus } from "@/services/bookingService";
+import { useToast } from "@/context/ToastContext";
 
 export default function AmenitiesSection() {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'amenities' | 'my-bookings'>('amenities');
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -77,10 +79,10 @@ export default function AmenitiesSection() {
 
       setIsBookingModalOpen(false);
       setActiveTab('my-bookings');
-      alert("Booking request submitted successfully!");
+      showToast("Booking request submitted successfully!", "success");
     } catch (error) {
       console.error("Failed to book amenity", error);
-      alert("Failed to book amenity");
+      showToast("Failed to book amenity", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -131,6 +133,25 @@ export default function AmenitiesSection() {
                 key={amenity.id}
                 className="group p-5 rounded-2xl bg-slate-900/50 border border-white/5 hover:border-cyan-500/30 transition-all hover:bg-slate-800/50 relative overflow-hidden"
               >
+                {amenity.display_image_url ? (
+                  <div className="h-32 -mx-5 -mt-5 mb-4 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent z-10" />
+                    <img 
+                      src={amenity.display_image_url} 
+                      alt={amenity.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute bottom-2 left-5 z-20">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${
+                        amenity.status === AmenityStatus.AVAILABLE ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                        amenity.status === AmenityStatus.MAINTENANCE ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
+                        'text-red-400 bg-red-500/10 border-red-500/20'
+                      }`}>
+                        {amenity.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
                 <div className="flex items-start justify-between mb-4">
                   <div className="p-3 rounded-xl bg-slate-800 text-cyan-400 group-hover:bg-cyan-500/10 transition-colors">
                     <Dumbbell className="w-6 h-6" />
@@ -143,6 +164,7 @@ export default function AmenitiesSection() {
                     {amenity.status.toUpperCase()}
                   </span>
                 </div>
+                )}
                 
                 <h3 className="text-lg font-bold text-slate-100 mb-1">{amenity.name}</h3>
                 <p className="text-sm text-slate-400 mb-4 line-clamp-2">{amenity.description}</p>

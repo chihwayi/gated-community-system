@@ -5,22 +5,31 @@ import {
   Trash2, 
   Loader2, 
   X,
-  AlertCircle
+  AlertCircle,
+  Camera
 } from "lucide-react";
 import { vehicleService, Vehicle, VehicleCreate } from "@/services/vehicleService";
+import { uploadService } from "@/services/uploadService";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
 
 export default function VehiclesSection() {
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<VehicleCreate>({
     license_plate: "",
     make: "",
     model: "",
     color: "",
-    parking_slot: ""
+    parking_slot: "",
+    image_url: ""
   });
 
   useEffect(() => {
@@ -30,12 +39,39 @@ export default function VehiclesSection() {
   const loadVehicles = async () => {
     setIsLoading(true);
     try {
-      const data = await vehicleService.getVehicles();
-      setVehicles(data);
+      const response = await vehicleService.getVehicles();
+      setVehicles(response.data);
     } catch (error) {
       console.error("Failed to load vehicles", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please upload an image file', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File size should be less than 5MB', 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const res = await uploadService.uploadFile(file);
+      setFormData({ ...formData, image_url: res.object_key });
+      setPreviewUrl(res.url);
+    } catch (error) {
+      console.error("Failed to upload vehicle image", error);
+      showToast("Failed to upload image", 'error');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -50,24 +86,34 @@ export default function VehiclesSection() {
         make: "",
         model: "",
         color: "",
-        parking_slot: ""
+        parking_slot: "",
+        image_url: ""
       });
+      setPreviewUrl(null);
       loadVehicles();
+      showToast('Vehicle added successfully!', 'success');
     } catch (error) {
       console.error("Failed to add vehicle", error);
-      alert("Failed to add vehicle");
+      showToast("Failed to add vehicle", 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to remove this vehicle?")) return;
+    if (!(await confirm({
+      title: "Remove Vehicle",
+      message: "Are you sure you want to remove this vehicle?",
+      confirmLabel: "Remove",
+      variant: "danger"
+    }))) return;
     try {
       await vehicleService.deleteVehicle(id);
       loadVehicles();
+      showToast('Vehicle removed successfully', 'success');
     } catch (error) {
       console.error("Failed to delete vehicle", error);
+      showToast("Failed to delete vehicle", 'error');
     }
   };
 
@@ -103,8 +149,16 @@ export default function VehiclesSection() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400">
-                      <Car className="w-6 h-6" />
+                    <div className="w-16 h-16 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-400 overflow-hidden shrink-0">
+                      {vehicle.display_image_url ? (
+                        <img 
+                          src={vehicle.display_image_url} 
+                          alt={vehicle.license_plate} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Car className="w-8 h-8" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-100 text-lg tracking-wider font-mono">{vehicle.license_plate}</h3>
@@ -214,6 +268,42 @@ export default function VehiclesSection() {
                   className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 placeholder:text-slate-600"
                   placeholder="A-101"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Vehicle Image</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden relative group">
+                    {previewUrl ? (
+                      <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <Car className="w-8 h-8 text-slate-600" />
+                    )}
+                    {isUploading && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      id="vehicle-image"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={isUploading}
+                    />
+                    <label
+                      htmlFor="vehicle-image"
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white cursor-pointer transition-colors border border-white/10 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <Camera className="w-4 h-4 text-cyan-400" />
+                      {previewUrl ? 'Change Photo' : 'Upload Photo'}
+                    </label>
+                    <p className="text-xs text-slate-500 mt-2">Max 5MB. JPG, PNG supported.</p>
+                  </div>
+                </div>
               </div>
 
               <button

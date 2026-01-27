@@ -25,6 +25,17 @@ def login_access_token(
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+    
+    if user.mfa_enabled:
+        access_token_expires = timedelta(minutes=5)
+        temp_token = security.create_access_token(
+            user.id, expires_delta=access_token_expires, claims={"type": "mfa_pending"}
+        )
+        return {
+            "mfa_required": True,
+            "temp_token": temp_token
+        }
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {
         "access_token": security.create_access_token(

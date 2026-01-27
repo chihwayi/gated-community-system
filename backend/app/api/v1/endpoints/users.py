@@ -51,6 +51,25 @@ def read_user_me(
     """
     return current_user
 
+@router.get("/household", response_model=List[UserSchema])
+def read_household_members(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get all users living at the same address (Household members).
+    """
+    if not current_user.house_address:
+        return [current_user]
+    
+    # Return all active residents with same house address
+    members = db.query(User).filter(
+        User.house_address == current_user.house_address,
+        User.is_active == True,
+        User.role == UserRole.RESIDENT
+    ).all()
+    return members
+
 @router.post("/change-password", response_model=UserSchema)
 def change_password(
     *,
@@ -99,7 +118,7 @@ def update_user(
     db: Session = Depends(deps.get_db),
     user_id: int,
     user_in: UserUpdate,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Update a user.
@@ -110,5 +129,12 @@ def update_user(
             status_code=404,
             detail="The user with this id does not exist in the system",
         )
+    
+    # Allow users to update their own profile, or admins to update any profile
+    if user.id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=400, detail="The user doesn't have enough privileges"
+        )
+        
     user = crud_user.update(db, db_obj=user, obj_in=user_in)
     return user

@@ -10,6 +10,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // MFA State
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaToken, setMfaToken] = useState("");
+  const [tempToken, setTempToken] = useState("");
+  
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,12 +24,33 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await authService.login(email, password);
-      await login(response.access_token);
+      if (mfaRequired) {
+          // MFA Login
+          const response = await authService.mfaLogin(tempToken, mfaToken);
+          if (response.access_token) {
+              await login(response.access_token);
+          } else {
+              throw new Error("MFA verification failed");
+          }
+      } else {
+          // Standard Login
+          const response = await authService.login(email, password);
+          if (response.mfa_required && response.temp_token) {
+              setMfaRequired(true);
+              setTempToken(response.temp_token);
+              setIsLoading(false); // Stop loading to show OTP input
+              return;
+          }
+          if (response.access_token) {
+             await login(response.access_token);
+          }
+      }
     } catch (err: any) {
-      setError(err.message || "Invalid email or password");
+      setError(err.message || "Login failed");
     } finally {
-      setIsLoading(false);
+      if (!mfaRequired || (mfaRequired && error)) {
+          setIsLoading(false);
+      }
     }
   };
 
@@ -44,7 +71,7 @@ export default function LoginPage() {
           <p className="text-slate-400">Sign in to manage your gated community</p>
         </div>
 
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm animate-in zoom-in-95 duration-300">
@@ -52,42 +79,65 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300 ml-1">Email Address</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+            {!mfaRequired ? (
+                <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-300 ml-1">Email Address</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                        </div>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
+                          placeholder="name@example.com"
+                          required
+                        />
+                      </div>
+                    </div>
+        
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center ml-1">
+                        <label className="text-sm font-medium text-slate-300">Password</label>
+                        <a href="#" className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">Forgot password?</a>
+                      </div>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                        </div>
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
+                          placeholder="••••••••"
+                          required
+                        />
+                      </div>
+                    </div>
+                </>
+            ) : (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300 ml-1">Two-Factor Authentication Code</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <ShieldCheck className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                    </div>
+                    <input
+                      type="text"
+                      value={mfaToken}
+                      onChange={(e) => setMfaToken(e.target.value)}
+                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
+                      placeholder="123456"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 ml-1">Enter the 6-digit code from your authenticator app.</p>
                 </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
-                  placeholder="name@example.com"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center ml-1">
-                <label className="text-sm font-medium text-slate-300">Password</label>
-                <a href="#" className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">Forgot password?</a>
-              </div>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
-                </div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-11 pr-4 py-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/40 transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
+            )}
 
             <button
               type="submit"

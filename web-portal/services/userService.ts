@@ -10,6 +10,8 @@ export interface User {
   is_active: boolean;
   created_at: string;
   house_address?: string;
+  profile_picture?: string;
+  profile_picture_url?: string;
 }
 
 export interface UserCreate {
@@ -27,6 +29,7 @@ export interface UserUpdate {
   house_address?: string;
   email?: string;
   is_active?: boolean;
+  profile_picture?: string;
 }
 
 export const userService = {
@@ -58,6 +61,22 @@ export const userService = {
 
     if (!response.ok) {
       throw new Error('Failed to fetch guards');
+    }
+    return response.json();
+  },
+
+  async getHouseholdMembers(): Promise<User[]> {
+    const token = authService.getToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/users/household`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch household members');
     }
     return response.json();
   },

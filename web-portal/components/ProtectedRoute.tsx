@@ -47,12 +47,23 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         {showTimeout && (
           <div className="text-center animate-in fade-in duration-500">
             <p className="text-slate-400 mb-2">Connecting to server is taking longer than expected...</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors"
-            >
-              Reload Page
-            </button>
+            <div className="flex gap-2 justify-center">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Reload Page
+              </button>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  window.location.href = '/login';
+                }}
+                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-sm transition-colors"
+              >
+                Reset & Login
+              </button>
+            </div>
           </div>
         )}
       </div>

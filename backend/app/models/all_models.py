@@ -141,9 +141,12 @@ class User(Base):
     full_name = Column(String, index=True)
     phone_number = Column(String, index=True)
     house_address = Column(String)
+    profile_picture = Column(String, nullable=True) # For Face ID / Security
     role = Column(Enum(UserRole), default=UserRole.RESIDENT)
     is_active = Column(Boolean, default=True)
     is_password_changed = Column(Boolean, default=False)
+    mfa_enabled = Column(Boolean, default=False)
+    mfa_secret = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -155,6 +158,62 @@ class Property(Base):
     owner_id = Column(Integer, ForeignKey("users.id"))
     
     owner = relationship("User", backref="properties")
+
+class Blacklist(Base):
+    __tablename__ = "blacklist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, nullable=False)
+    phone_number = Column(String, index=True, nullable=True)
+    id_number = Column(String, index=True, nullable=True)
+    reason = Column(String, nullable=True)
+    
+    added_by_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    added_by = relationship("User")
+
+class PatrolLog(Base):
+    __tablename__ = "patrol_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    guard_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(String, nullable=True)
+    
+    guard = relationship("User")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    type = Column(Enum(NotificationType), default=NotificationType.INFO)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User", backref="notifications")
+
+class MarketplaceItem(Base):
+    __tablename__ = "marketplace_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    price = Column(Integer, nullable=False) # In cents
+    category = Column(String, nullable=False, default="Other")
+    condition = Column(String, nullable=True)
+    status = Column(Enum(MarketplaceItemStatus), default=MarketplaceItemStatus.AVAILABLE)
+    images = Column(JSON, default=[])
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    seller = relationship("User", backref="marketplace_items")
 
 class Visitor(Base):
     __tablename__ = "visitors"
@@ -321,6 +380,16 @@ class Staff(Base):
     
     employer = relationship("User", backref="staff")
 
+class StaffAttendance(Base):
+    __tablename__ = "staff_attendance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    check_in = Column(DateTime(timezone=True), nullable=False)
+    check_out = Column(DateTime(timezone=True), nullable=True)
+    
+    staff = relationship("Staff", backref="attendance_records")
+
 # --- New Models for Advanced Features ---
 
 class Vehicle(Base):
@@ -333,6 +402,7 @@ class Vehicle(Base):
     model = Column(String, nullable=True)
     color = Column(String, nullable=True)
     parking_slot = Column(String, nullable=True) # Optional slot assignment
+    image_url = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

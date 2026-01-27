@@ -13,8 +13,12 @@ import {
   User
 } from "lucide-react";
 import { staffService, Staff, StaffCreate, StaffType, StaffStatus } from "@/services/staffService";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
 
 export default function StaffSection() {
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -54,34 +58,40 @@ export default function StaffSection() {
           phone_number: phoneNumber,
           staff_type: staffType,
         });
-        alert("Staff updated successfully!");
+        showToast("Staff updated successfully!", "success");
       } else {
         await staffService.createStaff({
           full_name: fullName,
           phone_number: phoneNumber,
           staff_type: staffType,
         });
-        alert("Staff added successfully!");
+        showToast("Staff added successfully!", "success");
       }
       setIsModalOpen(false);
       resetForm();
       loadStaff();
     } catch (error: any) {
       console.error("Failed to save staff", error);
-      alert(error.message || "Failed to save staff");
+      showToast(error.message || "Failed to save staff", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteStaff = async (id: number) => {
-    if (!confirm("Are you sure you want to remove this staff member? This cannot be undone.")) return;
+    if (!(await confirm({
+      title: "Remove Staff Member",
+      message: "Are you sure you want to remove this staff member? This cannot be undone.",
+      confirmLabel: "Remove",
+      variant: "danger"
+    }))) return;
     try {
       await staffService.deleteStaff(id);
       loadStaff();
+      showToast("Staff deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete staff", error);
-      alert("Failed to delete staff");
+      showToast("Failed to delete staff", "error");
     }
   };
 

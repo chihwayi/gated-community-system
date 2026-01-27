@@ -3,8 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { FileText, Search, Plus, Trash2, Download, Upload, X, Filter, Loader2 } from "lucide-react";
 import { documentService, CommunityDocument, DocumentCategory } from "@/services/documentService";
+import { useToast } from "@/context/ToastContext";
+import { useConfirmation } from "@/context/ConfirmationContext";
 
 export default function DocumentsPage() {
+  const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [documents, setDocuments] = useState<CommunityDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<DocumentCategory | 'all'>('all');
@@ -44,7 +48,7 @@ export default function DocumentsPage() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDocument.file) {
-      alert("Please select a file");
+      showToast("Please select a file", "error");
       return;
     }
 
@@ -65,22 +69,29 @@ export default function DocumentsPage() {
       setShowUploadModal(false);
       setNewDocument({ title: "", description: "", category: DocumentCategory.OTHER, file: null });
       loadDocuments();
+      showToast("Document uploaded successfully", "success");
     } catch (error) {
       console.error("Failed to upload document", error);
-      alert("Failed to upload document");
+      showToast("Failed to upload document", "error");
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this document?")) return;
+    if (!(await confirm({
+      title: "Delete Document",
+      message: "Are you sure you want to delete this document?",
+      confirmLabel: "Delete",
+      variant: "danger"
+    }))) return;
     try {
       await documentService.deleteDocument(id);
       loadDocuments();
+      showToast("Document deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete document", error);
-      alert("Failed to delete document");
+      showToast("Failed to delete document", "error");
     }
   };
 
