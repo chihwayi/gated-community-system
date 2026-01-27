@@ -53,13 +53,23 @@ def create_visitor(
     
     # Check blacklist
     blacklist_entry = db.query(Blacklist).filter(
-        Blacklist.phone_number == visitor_in.phone_number
+        Blacklist.phone_number == visitor_in.phone_number,
+        Blacklist.tenant_id == current_user.tenant_id
     ).first()
     
     if blacklist_entry:
          raise HTTPException(status_code=403, detail="This visitor is blacklisted.")
     
-    visitor = crud_visitor.create_visitor(db=db, visitor=visitor_in)
+    # Ensure host belongs to same tenant if admin creates visitor for someone else
+    if visitor_in.host_id and visitor_in.host_id != current_user.id:
+        host = crud_user.get(db, id=visitor_in.host_id)
+        if not host or host.tenant_id != current_user.tenant_id:
+             raise HTTPException(status_code=400, detail="Invalid host")
+
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
+    visitor = crud_visitor.create_visitor(db=db, visitor=visitor_in, tenant_id=current_user.tenant_id)
 
     # Dual Send Notification (SMS + WhatsApp)
     # In a real app, generate a proper QR code image URL here

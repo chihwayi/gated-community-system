@@ -12,10 +12,12 @@ router = APIRouter()
 def create_document(
     document_in: schemas.DocumentCreate,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_superuser)
+    current_user: User = Depends(deps.get_current_active_admin)
 ) -> Any:
     """Upload a new document. (Admin only)"""
-    return crud_document.create_document(db=db, document=document_in, uploaded_by_id=current_user.id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    return crud_document.create_document(db=db, document=document_in, uploaded_by_id=current_user.id, tenant_id=current_user.tenant_id)
 
 @router.get("/", response_model=List[schemas.CommunityDocument])
 def read_documents(
@@ -26,16 +28,20 @@ def read_documents(
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
     """Retrieve documents."""
-    return crud_document.get_documents(db=db, skip=skip, limit=limit, category=category)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    return crud_document.get_documents(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit, category=category)
 
 @router.delete("/{document_id}", response_model=schemas.CommunityDocument)
 def delete_document(
     document_id: int,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_superuser)
+    current_user: User = Depends(deps.get_current_active_admin)
 ) -> Any:
     """Delete a document. (Admin only)"""
-    document = crud_document.delete_document(db=db, document_id=document_id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    document = crud_document.delete_document(db=db, document_id=document_id, tenant_id=current_user.tenant_id)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     return document

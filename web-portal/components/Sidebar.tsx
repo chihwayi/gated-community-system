@@ -20,10 +20,12 @@ import {
   User
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useTenant } from "@/context/TenantContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { tenant } = useTenant();
 
   const navItems = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -46,9 +48,16 @@ export default function Sidebar() {
   return (
     <div className="w-64 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0">
       <div className="p-6">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-          Gated<br />Community
-        </h1>
+        {tenant?.logo_url ? (
+            <div className="flex items-center gap-3">
+                 <img src={tenant.logo_url} alt={tenant.name} className="h-10 w-auto rounded-lg" />
+                 <h1 className="text-xl font-bold text-slate-100">{tenant.name}</h1>
+            </div>
+        ) : (
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            {tenant?.name || "Gated Community"}
+            </h1>
+        )}
       </div>
 
       <nav className="flex-1 px-4 space-y-2 overflow-y-auto min-h-0">

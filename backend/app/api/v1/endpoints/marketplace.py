@@ -16,16 +16,21 @@ def read_marketplace_items(
     category: str = None,
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    
     if category:
-        return crud_marketplace.marketplace.get_multi_by_category(db=db, category=category, skip=skip, limit=limit)
-    return crud_marketplace.marketplace.get_available(db=db, skip=skip, limit=limit)
+        return crud_marketplace.marketplace.get_multi_by_category(db=db, category=category, tenant_id=current_user.tenant_id, skip=skip, limit=limit)
+    return crud_marketplace.marketplace.get_available(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit)
 
 @router.get("/me", response_model=List[schemas.MarketplaceItem])
 def read_my_items(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
-    return crud_marketplace.marketplace.get_by_seller(db=db, seller_id=current_user.id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    return crud_marketplace.marketplace.get_by_seller(db=db, seller_id=current_user.id, tenant_id=current_user.tenant_id)
 
 @router.post("/", response_model=schemas.MarketplaceItem)
 def create_item(
@@ -33,7 +38,9 @@ def create_item(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
-    return crud_marketplace.marketplace.create_with_seller(db=db, obj_in=item_in, seller_id=current_user.id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    return crud_marketplace.marketplace.create_with_seller(db=db, obj_in=item_in, seller_id=current_user.id, tenant_id=current_user.tenant_id)
 
 @router.get("/{item_id}", response_model=schemas.MarketplaceItem)
 def read_item(
@@ -41,9 +48,16 @@ def read_item(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
     item = crud_marketplace.marketplace.get(db=db, id=item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    
+    if item.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
     return item
 
 @router.patch("/{item_id}", response_model=schemas.MarketplaceItem)
@@ -53,8 +67,14 @@ def update_item(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
     item = crud_marketplace.marketplace.get(db=db, id=item_id)
     if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    if item.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Item not found")
     
     # Only seller or admin can update
@@ -69,8 +89,14 @@ def delete_item(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
     item = crud_marketplace.marketplace.get(db=db, id=item_id)
     if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    if item.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Item not found")
     
     # Only seller or admin can delete

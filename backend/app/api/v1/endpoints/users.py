@@ -15,7 +15,7 @@ def read_users(
     skip: int = 0,
     limit: int = 100,
     role: Optional[str] = None,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Retrieve all users (Admin only). Optionally filter by role.
@@ -28,7 +28,7 @@ def create_user(
     *,
     db: Session = Depends(deps.get_db),
     user_in: UserCreate,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Create new user (Admin only).
@@ -96,7 +96,7 @@ def reset_password(
     user_id: int,
     db: Session = Depends(deps.get_db),
     password_data: UserPasswordReset,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_active_admin),
 ) -> Any:
     """
     Reset password for a user (Admin only).

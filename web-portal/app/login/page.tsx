@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Lock, Mail, Loader2, ArrowRight, ShieldCheck } from "lucide-react";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
+import { useTenant } from "@/context/TenantContext";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,8 +18,9 @@ export default function LoginPage() {
   const [tempToken, setTempToken] = useState("");
   
   const { login } = useAuth();
+  const { tenant, isLoading: isTenantLoading } = useTenant();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -64,11 +66,15 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 mb-4 shadow-lg shadow-cyan-500/20">
-            <ShieldCheck className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 mb-4 shadow-lg shadow-cyan-500/20 overflow-hidden">
+            {tenant?.logo_url ? (
+                <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
+            ) : (
+                <ShieldCheck className="w-8 h-8 text-white" />
+            )}
           </div>
           <h1 className="text-3xl font-bold text-slate-100 font-sora mb-2">Welcome Back</h1>
-          <p className="text-slate-400">Sign in to manage your gated community</p>
+          <p className="text-slate-400">Sign in to manage {tenant ? tenant.name : "your gated community"}</p>
         </div>
 
           <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000">

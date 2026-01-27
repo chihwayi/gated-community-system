@@ -16,8 +16,10 @@ def read_staff(
     limit: int = 100,
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
     if current_user.role == UserRole.ADMIN:
-        return crud_staff.staff.get_multi(db=db, skip=skip, limit=limit)
+        return crud_staff.staff.get_active_staff(db=db, tenant_id=current_user.tenant_id)
     else:
         # Residents only see their own staff
         return crud_staff.staff.get_staff_by_employer(db=db, employer_id=current_user.id)
@@ -28,6 +30,8 @@ def create_staff(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
     if current_user.role == UserRole.RESIDENT:
         # Force employer_id to current user for residents
         staff_in.employer_id = current_user.id
@@ -36,7 +40,7 @@ def create_staff(
     else:
         raise HTTPException(status_code=403, detail="Not authorized")
         
-    return crud_staff.staff.create_staff(db=db, staff=staff_in)
+    return crud_staff.staff.create_staff(db=db, staff=staff_in, tenant_id=current_user.tenant_id)
 
 @router.get("/code/{access_code}", response_model=schemas.Staff)
 def read_staff_by_code(
@@ -52,6 +56,9 @@ def read_staff_by_code(
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
         
+    if current_user.tenant_id and staff.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
     return staff
 
 @router.get("/{staff_id}", response_model=schemas.Staff)
@@ -64,6 +71,9 @@ def read_staff_by_id(
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
         
+    if current_user.tenant_id and staff.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
     if current_user.role == UserRole.RESIDENT and staff.employer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
         
@@ -80,6 +90,9 @@ def update_staff(
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
         
+    if current_user.tenant_id and staff.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
     if current_user.role == UserRole.RESIDENT and staff.employer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
         
@@ -131,7 +144,7 @@ def read_all_attendance(
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
     
-    return crud_staff.staff_attendance.get_all_attendance(db=db, skip=skip, limit=limit, start_date=start, end_date=end)
+    return crud_staff.staff_attendance.get_all_attendance(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit, start_date=start, end_date=end)
 
 @router.get("/{staff_id}/attendance", response_model=List[schemas.StaffAttendance])
 def read_staff_attendance(

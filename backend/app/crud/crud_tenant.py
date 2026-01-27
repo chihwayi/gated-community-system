@@ -1,7 +1,7 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.models.all_models import Tenant
-from app.schemas.tenant import TenantCreate
+from app.schemas.tenant import TenantCreate, TenantUpdate
 
 
 def get(db: Session, tenant_id: int) -> Optional[Tenant]:
@@ -29,4 +29,21 @@ def create(db: Session, obj_in: TenantCreate) -> Tenant:
     db.commit()
     db.refresh(db_obj)
     return db_obj
+
+
+def update(db: Session, *, db_obj: Tenant, obj_in: TenantUpdate) -> Tenant:
+    update_data = obj_in.dict(exclude_unset=True)
+    for field in update_data:
+        setattr(db_obj, field, update_data[field])
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj
+
+
+def remove(db: Session, *, id: int) -> Tenant:
+    obj = db.query(Tenant).get(id)
+    db.delete(obj)
+    db.commit()
+    return obj
 

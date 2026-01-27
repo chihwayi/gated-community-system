@@ -11,9 +11,8 @@ import os
 class StorageClient:
     def __init__(self):
         # Allow overriding endpoint via env var for public access (e.g. 173.212.195.88:9000)
-        # But internally, the container talks to 'minio:9000'
-        self.public_endpoint = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-        self.internal_endpoint = "minio:9000"
+        self.public_endpoint = settings.MINIO_PUBLIC_ENDPOINT
+        self.internal_endpoint = settings.MINIO_ENDPOINT
         
         self.access_key = settings.MINIO_ACCESS_KEY
         self.secret_key = settings.MINIO_SECRET_KEY

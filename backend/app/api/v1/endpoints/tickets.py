@@ -17,7 +17,10 @@ def create_ticket(
     """
     Create a new ticket.
     """
-    return crud_ticket.create_ticket(db=db, ticket=ticket_in, created_by_id=current_user.id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
+    return crud_ticket.create_ticket(db=db, ticket=ticket_in, created_by_id=current_user.id, tenant_id=current_user.tenant_id)
 
 @router.get("/", response_model=List[schemas.Ticket])
 def read_tickets(
@@ -29,13 +32,16 @@ def read_tickets(
     """
     Retrieve tickets.
     """
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
     if current_user.role == UserRole.ADMIN:
-        return crud_ticket.get_tickets(db=db, skip=skip, limit=limit)
+        return crud_ticket.get_tickets(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit)
     elif current_user.role == UserRole.GUARD:
         # Guards might see tickets assigned to them
-        return crud_ticket.get_tickets(db=db, skip=skip, limit=limit, assigned_to_id=current_user.id) 
+        return crud_ticket.get_tickets(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit, assigned_to_id=current_user.id) 
     else:
-        return crud_ticket.get_tickets(db=db, skip=skip, limit=limit, created_by_id=current_user.id)
+        return crud_ticket.get_tickets(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit, created_by_id=current_user.id)
 
 @router.get("/{ticket_id}", response_model=schemas.Ticket)
 def read_ticket(
@@ -46,7 +52,10 @@ def read_ticket(
     """
     Get ticket by ID.
     """
-    ticket = crud_ticket.get_ticket(db=db, ticket_id=ticket_id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
+    ticket = crud_ticket.get_ticket(db=db, ticket_id=ticket_id, tenant_id=current_user.tenant_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
@@ -68,7 +77,10 @@ def update_ticket(
     """
     Update ticket.
     """
-    ticket = crud_ticket.get_ticket(db=db, ticket_id=ticket_id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
+    ticket = crud_ticket.get_ticket(db=db, ticket_id=ticket_id, tenant_id=current_user.tenant_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -78,4 +90,4 @@ def update_ticket(
        ticket.assigned_to_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    return crud_ticket.update_ticket(db=db, ticket_id=ticket_id, ticket_update=ticket_in)
+    return crud_ticket.update_ticket(db=db, ticket_id=ticket_id, ticket_update=ticket_in, tenant_id=current_user.tenant_id)

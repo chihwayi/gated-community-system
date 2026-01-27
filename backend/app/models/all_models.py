@@ -5,6 +5,7 @@ import enum
 
 # Enums
 class UserRole(str, enum.Enum):
+    SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
     RESIDENT = "resident"
     GUARD = "guard"
@@ -168,15 +169,18 @@ class Property(Base):
     __tablename__ = "properties"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     address = Column(String, unique=True, index=True, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"))
     
     owner = relationship("User", backref="properties")
+    tenant = relationship("Tenant", backref="properties")
 
 class Blacklist(Base):
     __tablename__ = "blacklist"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     name = Column(String, index=True, nullable=False)
     phone_number = Column(String, index=True, nullable=True)
     id_number = Column(String, index=True, nullable=True)
@@ -186,11 +190,13 @@ class Blacklist(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     added_by = relationship("User")
+    tenant = relationship("Tenant", backref="blacklist_entries")
 
 class PatrolLog(Base):
     __tablename__ = "patrol_logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     guard_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
@@ -198,6 +204,7 @@ class PatrolLog(Base):
     notes = Column(String, nullable=True)
     
     guard = relationship("User")
+    tenant = relationship("Tenant", backref="patrol_logs")
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -216,6 +223,7 @@ class MarketplaceItem(Base):
     __tablename__ = "marketplace_items"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(String, nullable=False)
     price = Column(Integer, nullable=False) # In cents
@@ -228,11 +236,13 @@ class MarketplaceItem(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     seller = relationship("User", backref="marketplace_items")
+    tenant = relationship("Tenant", backref="marketplace_items")
 
 class Visitor(Base):
     __tablename__ = "visitors"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     full_name = Column(String, index=True, nullable=False)
     phone_number = Column(String, index=True, nullable=False)
     vehicle_number = Column(String, nullable=True)
@@ -256,21 +266,26 @@ class Visitor(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     host = relationship("User", backref="visitors")
+    tenant = relationship("Tenant", backref="visitors")
 
 class FeeDefinition(Base):
     __tablename__ = "fee_definitions"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     name = Column(String, index=True, nullable=False)
     description = Column(String, nullable=True)
     amount = Column(Integer, nullable=False) # In cents
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    tenant = relationship("Tenant", backref="fee_definitions")
 
 class Bill(Base):
     __tablename__ = "bills"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     resident_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     amount = Column(Integer, nullable=False)
     description = Column(String, nullable=False)
@@ -285,6 +300,7 @@ class Payment(Base):
     __tablename__ = "payments"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     bill_id = Column(Integer, ForeignKey("bills.id"), nullable=True)
     amount = Column(Integer, nullable=False)
@@ -297,11 +313,13 @@ class Payment(Base):
 
     user = relationship("User", backref="payments_made")
     bill = relationship("Bill", backref="payments")
+    tenant = relationship("Tenant", backref="payments")
 
 class Incident(Base):
     __tablename__ = "incidents"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(String, nullable=False)
     location = Column(String, nullable=True)
@@ -312,11 +330,13 @@ class Incident(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     reporter = relationship("User", backref="incidents_reported")
+    tenant = relationship("Tenant", backref="incidents")
 
 class Notice(Base):
     __tablename__ = "notices"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
     priority = Column(Enum(NoticePriority), default=NoticePriority.MEDIUM)
@@ -325,11 +345,13 @@ class Notice(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     author = relationship("User", backref="notices_created")
+    tenant = relationship("Tenant", backref="notices")
 
 class Ticket(Base):
     __tablename__ = "tickets"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(String, nullable=False)
     category = Column(Enum(TicketCategory), default=TicketCategory.OTHER)
@@ -346,11 +368,13 @@ class Ticket(Base):
 
     created_by = relationship("User", foreign_keys=[created_by_id], backref="tickets_created")
     assigned_to = relationship("User", foreign_keys=[assigned_to_id], backref="tickets_assigned")
+    tenant = relationship("Tenant", backref="tickets")
 
 class Amenity(Base):
     __tablename__ = "amenities"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     name = Column(String, index=True, nullable=False)
     description = Column(String, nullable=True)
     capacity = Column(Integer, nullable=True)
@@ -360,11 +384,14 @@ class Amenity(Base):
     requires_approval = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    tenant = relationship("Tenant", backref="amenities")
 
 class Booking(Base):
     __tablename__ = "bookings"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     amenity_id = Column(Integer, ForeignKey("amenities.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     start_time = Column(DateTime(timezone=True), nullable=False)
@@ -376,11 +403,13 @@ class Booking(Base):
 
     amenity = relationship("Amenity", backref="bookings")
     user = relationship("User", backref="bookings")
+    tenant = relationship("Tenant", backref="bookings")
 
 class Staff(Base):
     __tablename__ = "staff"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     full_name = Column(String, nullable=False, index=True)
     phone_number = Column(String, unique=True, index=True, nullable=False)
     staff_type = Column(Enum(StaffType), default=StaffType.MAID)
@@ -393,6 +422,7 @@ class Staff(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     employer = relationship("User", backref="staff")
+    tenant = relationship("Tenant", backref="staff_members")
 
 class StaffAttendance(Base):
     __tablename__ = "staff_attendance"
@@ -410,6 +440,7 @@ class Vehicle(Base):
     __tablename__ = "vehicles"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     license_plate = Column(String, unique=True, index=True, nullable=False)
     make = Column(String, nullable=True)
@@ -422,11 +453,13 @@ class Vehicle(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     owner = relationship("User", backref="vehicles")
+    tenant = relationship("Tenant", backref="vehicles")
 
 class Parcel(Base):
     __tablename__ = "parcels"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     recipient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     carrier = Column(String, nullable=True) # Amazon, DHL, etc.
     status = Column(Enum(ParcelStatus), default=ParcelStatus.AT_GATE)
@@ -438,11 +471,13 @@ class Parcel(Base):
     collected_at = Column(DateTime(timezone=True), nullable=True)
 
     recipient = relationship("User", backref="parcels")
+    tenant = relationship("Tenant", backref="parcels")
 
 class Poll(Base):
     __tablename__ = "polls"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     question = Column(String, nullable=False)
     description = Column(String, nullable=True)
     status = Column(Enum(PollStatus), default=PollStatus.OPEN)
@@ -454,6 +489,7 @@ class Poll(Base):
     created_by = relationship("User", backref="polls_created")
     options = relationship("PollOption", backref="poll", cascade="all, delete-orphan")
     votes = relationship("PollVote", backref="poll", cascade="all, delete-orphan")
+    tenant = relationship("Tenant", backref="polls")
 
 class PollOption(Base):
     __tablename__ = "poll_options"
@@ -476,6 +512,7 @@ class CommunityDocument(Base):
     __tablename__ = "community_documents"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
     category = Column(Enum(DocumentCategory), default=DocumentCategory.OTHER)
@@ -485,3 +522,4 @@ class CommunityDocument(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     uploaded_by = relationship("User", backref="documents_uploaded")
+    tenant = relationship("Tenant", backref="community_documents")

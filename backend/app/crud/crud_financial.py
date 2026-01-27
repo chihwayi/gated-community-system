@@ -5,23 +5,24 @@ from app.models.all_models import Bill, Payment, FeeDefinition, BillStatus, Paym
 from app.schemas import financial as schemas
 
 # FeeDefinition CRUD
-def create_fee_definition(db: Session, fee: schemas.FeeDefinitionCreate) -> FeeDefinition:
+def create_fee_definition(db: Session, fee: schemas.FeeDefinitionCreate, tenant_id: int) -> FeeDefinition:
     db_fee = FeeDefinition(
         name=fee.name,
         description=fee.description,
         amount=fee.amount,
-        is_active=fee.is_active
+        is_active=fee.is_active,
+        tenant_id=tenant_id
     )
     db.add(db_fee)
     db.commit()
     db.refresh(db_fee)
     return db_fee
 
-def get_fee_definitions(db: Session, skip: int = 0, limit: int = 100) -> List[FeeDefinition]:
-    return db.query(FeeDefinition).offset(skip).limit(limit).all()
+def get_fee_definitions(db: Session, tenant_id: int, skip: int = 0, limit: int = 100) -> List[FeeDefinition]:
+    return db.query(FeeDefinition).filter(FeeDefinition.tenant_id == tenant_id).offset(skip).limit(limit).all()
 
-def get_active_fee_definitions(db: Session) -> List[FeeDefinition]:
-    return db.query(FeeDefinition).filter(FeeDefinition.is_active == True).all()
+def get_active_fee_definitions(db: Session, tenant_id: int) -> List[FeeDefinition]:
+    return db.query(FeeDefinition).filter(FeeDefinition.is_active == True, FeeDefinition.tenant_id == tenant_id).all()
 
 def get_fee_definition(db: Session, fee_id: int) -> Optional[FeeDefinition]:
     return db.query(FeeDefinition).filter(FeeDefinition.id == fee_id).first()
@@ -44,30 +45,34 @@ def delete_fee_definition(db: Session, fee_id: int) -> Optional[FeeDefinition]:
 
 
 # Bill CRUD
-def create_bill(db: Session, bill: schemas.BillCreate) -> Bill:
+def create_bill(db: Session, bill: schemas.BillCreate, tenant_id: int) -> Bill:
     db_bill = Bill(
         resident_id=bill.resident_id,
         amount=bill.amount,
         description=bill.description,
         due_date=bill.due_date,
-        status=bill.status
+        status=bill.status,
+        tenant_id=tenant_id
     )
     db.add(db_bill)
     db.commit()
     db.refresh(db_bill)
     return db_bill
 
-def get_bills(db: Session, skip: int = 0, limit: int = 100, resident_id: Optional[int] = None) -> List[Bill]:
-    query = db.query(Bill)
+def get_bills(db: Session, tenant_id: int, skip: int = 0, limit: int = 100, resident_id: Optional[int] = None) -> List[Bill]:
+    query = db.query(Bill).filter(Bill.tenant_id == tenant_id)
     if resident_id:
         query = query.filter(Bill.resident_id == resident_id)
     return query.order_by(Bill.created_at.desc()).offset(skip).limit(limit).all()
 
-def get_bill(db: Session, bill_id: int) -> Optional[Bill]:
-    return db.query(Bill).filter(Bill.id == bill_id).first()
+def get_bill(db: Session, bill_id: int, tenant_id: Optional[int] = None) -> Optional[Bill]:
+    query = db.query(Bill).filter(Bill.id == bill_id)
+    if tenant_id:
+        query = query.filter(Bill.tenant_id == tenant_id)
+    return query.first()
 
 # Payment CRUD
-def create_payment(db: Session, payment: schemas.PaymentCreate, user_id: int) -> Payment:
+def create_payment(db: Session, payment: schemas.PaymentCreate, user_id: int, tenant_id: int) -> Payment:
     db_payment = Payment(
         user_id=user_id,
         bill_id=payment.bill_id,
@@ -75,7 +80,8 @@ def create_payment(db: Session, payment: schemas.PaymentCreate, user_id: int) ->
         method=payment.method,
         reference=payment.reference,
         notes=payment.notes,
-        status=PaymentStatus.PENDING # Default to pending
+        status=PaymentStatus.PENDING, # Default to pending
+        tenant_id=tenant_id
     )
     db.add(db_payment)
     db.commit()
@@ -84,13 +90,14 @@ def create_payment(db: Session, payment: schemas.PaymentCreate, user_id: int) ->
 
 def get_payments(
     db: Session, 
+    tenant_id: int,
     skip: int = 0, 
     limit: int = 100, 
     user_id: Optional[int] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None
 ) -> List[Payment]:
-    query = db.query(Payment)
+    query = db.query(Payment).filter(Payment.tenant_id == tenant_id)
     if user_id:
         query = query.filter(Payment.user_id == user_id)
     if start_date:
@@ -99,23 +106,26 @@ def get_payments(
         query = query.filter(Payment.created_at <= end_date)
     return query.order_by(Payment.created_at.desc()).offset(skip).limit(limit).all()
 
-def update_payment_status(db: Session, payment_id: int, status: PaymentStatus) -> Optional[Payment]:
-    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+def update_payment_status(db: Session, payment_id: int, status: PaymentStatus, tenant_id: int) -> Optional[Payment]:
+    payment = db.query(Payment).filter(Payment.id == payment_id, Payment.tenant_id == tenant_id).first()
     if payment:
         payment.status = status
         
         # If payment is verified and linked to a bill, update bill status
         if status == PaymentStatus.VERIFIED and payment.bill_id:
-            bill = get_bill(db, payment.bill_id)
+            bill = get_bill(db, payment.bill_id, tenant_id) # Pass tenant_id for safety
             if bill:
                 # We need to refresh the bill's payments relationship to include the current one (if not already)
                 # But querying explicitly is safer
                 db.refresh(bill)
-                total_paid = sum(p.amount for p in bill.payments if p.status == PaymentStatus.VERIFIED)
-                
-                # Check if this payment was already counted? It's now verified, so it should be.
-                # If sum() uses the list in memory, it might be stale.
-                # Let's trust sqlalchemy refresh or just do a separate query sum
+                # Recalculate total paid from DB to be safe
+                total_paid = 0
+                paid_payments = db.query(Payment).filter(
+                    Payment.bill_id == bill.id, 
+                    Payment.status == PaymentStatus.VERIFIED,
+                    Payment.tenant_id == tenant_id
+                ).all()
+                total_paid = sum(p.amount for p in paid_payments)
                 
                 if total_paid >= bill.amount:
                     bill.status = BillStatus.PAID

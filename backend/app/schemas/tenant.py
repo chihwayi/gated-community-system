@@ -16,6 +16,12 @@ class TenantCreate(TenantBase):
     pass
 
 
+class TenantUpdate(TenantBase):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class Tenant(TenantBase):
     id: int
     created_at: datetime

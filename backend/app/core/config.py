@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
 
     # Minio Storage
-    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ENDPOINT: str = "minio:9000"  # Internal endpoint (backend -> minio)
+    MINIO_PUBLIC_ENDPOINT: str = "localhost:9000"  # Public endpoint (browser -> minio)
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_BUCKET_UPLOADS: str = "uploads"

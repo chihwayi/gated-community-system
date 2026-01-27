@@ -15,7 +15,9 @@ def read_amenities(
     limit: int = 100,
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
-    return crud_amenity.get_amenities(db=db, skip=skip, limit=limit)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    return crud_amenity.get_amenities(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit)
 
 @router.post("/", response_model=schemas.Amenity)
 def create_amenity(
@@ -25,7 +27,9 @@ def create_amenity(
 ) -> Any:
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return crud_amenity.create_amenity(db=db, amenity=amenity_in)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+    return crud_amenity.create_amenity(db=db, amenity=amenity_in, tenant_id=current_user.tenant_id)
 
 @router.get("/{amenity_id}", response_model=schemas.Amenity)
 def read_amenity(
@@ -35,6 +39,8 @@ def read_amenity(
 ) -> Any:
     amenity = crud_amenity.get_amenity(db=db, amenity_id=amenity_id)
     if not amenity:
+        raise HTTPException(status_code=404, detail="Amenity not found")
+    if current_user.tenant_id and amenity.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Amenity not found")
     return amenity
 
@@ -47,7 +53,13 @@ def update_amenity(
 ) -> Any:
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return crud_amenity.update_amenity(db=db, amenity_id=amenity_id, amenity_update=amenity_in)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
+    amenity = crud_amenity.update_amenity(db=db, amenity_id=amenity_id, amenity_update=amenity_in, tenant_id=current_user.tenant_id)
+    if not amenity:
+        raise HTTPException(status_code=404, detail="Amenity not found")
+    return amenity
 
 @router.delete("/{amenity_id}", response_model=schemas.Amenity)
 def delete_amenity(
@@ -57,4 +69,10 @@ def delete_amenity(
 ) -> Any:
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return crud_amenity.delete_amenity(db=db, amenity_id=amenity_id)
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
+    amenity = crud_amenity.delete_amenity(db=db, amenity_id=amenity_id, tenant_id=current_user.tenant_id)
+    if not amenity:
+        raise HTTPException(status_code=404, detail="Amenity not found")
+    return amenity

@@ -23,6 +23,7 @@ services:
       - POSTGRES_DB=gated_community_db
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT:-localhost:9000}
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
       - MINIO_BUCKET_UPLOADS=${MINIO_BUCKET_UPLOADS:-uploads}
@@ -37,9 +38,21 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
     depends_on:
       - backend
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - backend
+      - web-portal
 
   minio:
     image: minio/minio

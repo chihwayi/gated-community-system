@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 from app.models.all_models import Poll, PollOption, PollVote, PollStatus
 from app.schemas import poll as schemas
 
-def create_poll(db: Session, poll: schemas.PollCreate, created_by_id: int) -> Poll:
+def create_poll(db: Session, poll: schemas.PollCreate, created_by_id: int, tenant_id: int) -> Poll:
     db_poll = Poll(
         question=poll.question,
         description=poll.description,
         created_by_id=created_by_id,
+        tenant_id=tenant_id,
         end_date=poll.end_date,
         status=PollStatus.OPEN
     )
@@ -23,8 +24,8 @@ def create_poll(db: Session, poll: schemas.PollCreate, created_by_id: int) -> Po
     db.refresh(db_poll)
     return db_poll
 
-def get_polls(db: Session, skip: int = 0, limit: int = 100, user_id: Optional[int] = None) -> List[Poll]:
-    polls = db.query(Poll).order_by(Poll.created_at.desc()).offset(skip).limit(limit).all()
+def get_polls(db: Session, tenant_id: int, skip: int = 0, limit: int = 100, user_id: Optional[int] = None) -> List[Poll]:
+    polls = db.query(Poll).filter(Poll.tenant_id == tenant_id).order_by(Poll.created_at.desc()).offset(skip).limit(limit).all()
     
     if user_id:
         # Check if user has voted for each poll
@@ -34,11 +35,14 @@ def get_polls(db: Session, skip: int = 0, limit: int = 100, user_id: Optional[in
             
     return polls
 
-def get_poll(db: Session, poll_id: int) -> Optional[Poll]:
-    return db.query(Poll).filter(Poll.id == poll_id).first()
+def get_poll(db: Session, poll_id: int, tenant_id: int = None) -> Optional[Poll]:
+    query = db.query(Poll).filter(Poll.id == poll_id)
+    if tenant_id:
+        query = query.filter(Poll.tenant_id == tenant_id)
+    return query.first()
 
-def vote_poll(db: Session, poll_id: int, option_id: int, user_id: int) -> Optional[Poll]:
-    poll = db.query(Poll).filter(Poll.id == poll_id).first()
+def vote_poll(db: Session, poll_id: int, option_id: int, user_id: int, tenant_id: int) -> Optional[Poll]:
+    poll = db.query(Poll).filter(Poll.id == poll_id, Poll.tenant_id == tenant_id).first()
     if not poll or poll.status != PollStatus.OPEN:
         return None
         
@@ -60,8 +64,8 @@ def vote_poll(db: Session, poll_id: int, option_id: int, user_id: int) -> Option
     db.refresh(poll)
     return poll
 
-def delete_poll(db: Session, poll_id: int) -> Optional[Poll]:
-    poll = db.query(Poll).filter(Poll.id == poll_id).first()
+def delete_poll(db: Session, poll_id: int, tenant_id: int) -> Optional[Poll]:
+    poll = db.query(Poll).filter(Poll.id == poll_id, Poll.tenant_id == tenant_id).first()
     if poll:
         db.delete(poll)
         db.commit()

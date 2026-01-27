@@ -2,8 +2,10 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.api import deps
-from app.models.all_models import User, Blacklist, PatrolLog
+from app.models.all_models import User, UserRole
 from app.schemas import security as security_schemas
+from app.crud import crud_blacklist, crud_patrol_log
+from app.schemas import blacklist as blacklist_schemas # Use the dedicated schema for CRUD compatibility
 
 router = APIRouter()
 
@@ -19,29 +21,40 @@ def read_blacklist(
     """
     Retrieve blacklist entries.
     """
-    blacklist = db.query(Blacklist).offset(skip).limit(limit).all()
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+        
+    blacklist = crud_blacklist.blacklist.get_multi(
+        db, tenant_id=current_user.tenant_id, skip=skip, limit=limit
+    )
     return blacklist
 
 @router.post("/blacklist", response_model=security_schemas.Blacklist)
 def create_blacklist_entry(
     *,
     db: Session = Depends(deps.get_db),
-    blacklist_in: security_schemas.BlacklistCreate,
+    blacklist_in: blacklist_schemas.BlacklistCreate, # Use dedicated schema
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Add a visitor to the blacklist.
     """
-    if current_user.role not in ["admin", "guard"]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.GUARD]:
         raise HTTPException(status_code=403, detail="Not authorized to manage blacklist")
+    
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
         
-    blacklist_entry = Blacklist(
-        **blacklist_in.dict(),
-        added_by_id=current_user.id
+    # Check if already exists
+    existing = crud_blacklist.blacklist.get_by_phone(
+        db, phone_number=blacklist_in.phone_number, tenant_id=current_user.tenant_id
     )
-    db.add(blacklist_entry)
-    db.commit()
-    db.refresh(blacklist_entry)
+    if existing:
+        raise HTTPException(status_code=400, detail="Person with this phone number already blacklisted")
+
+    blacklist_entry = crud_blacklist.blacklist.create(
+        db, obj_in=blacklist_in, added_by_id=current_user.id, tenant_id=current_user.tenant_id
+    )
     return blacklist_entry
 
 @router.delete("/blacklist/{id}", response_model=security_schemas.Blacklist)
@@ -54,15 +67,20 @@ def delete_blacklist_entry(
     """
     Remove a visitor from the blacklist.
     """
-    if current_user.role != "admin":
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized to delete blacklist entries")
+    
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
         
-    blacklist_entry = db.query(Blacklist).filter(Blacklist.id == id).first()
+    blacklist_entry = crud_blacklist.blacklist.get(db, id=id)
     if not blacklist_entry:
         raise HTTPException(status_code=404, detail="Blacklist entry not found")
         
-    db.delete(blacklist_entry)
-    db.commit()
+    if blacklist_entry.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Blacklist entry not found")
+        
+    crud_blacklist.blacklist.remove(db, id=id)
     return blacklist_entry
 
 # Patrol Log Endpoints
@@ -76,7 +94,12 @@ def read_patrol_logs(
     """
     Retrieve patrol logs.
     """
-    logs = db.query(PatrolLog).order_by(PatrolLog.timestamp.desc()).limit(limit).all()
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+        
+    logs = crud_patrol_log.patrol_log.get_multi(
+        db, tenant_id=current_user.tenant_id, limit=limit
+    )
     return logs
 
 @router.post("/patrol-logs", response_model=security_schemas.PatrolLog)
@@ -89,14 +112,13 @@ def create_patrol_log(
     """
     Create a patrol log entry.
     """
-    if current_user.role != "guard":
+    if current_user.role != UserRole.GUARD:
         raise HTTPException(status_code=403, detail="Only guards can create patrol logs")
+    
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
         
-    log = PatrolLog(
-        **log_in.dict(),
-        guard_id=current_user.id
+    log = crud_patrol_log.patrol_log.create(
+        db, obj_in=log_in, guard_id=current_user.id, tenant_id=current_user.tenant_id
     )
-    db.add(log)
-    db.commit()
-    db.refresh(log)
     return log

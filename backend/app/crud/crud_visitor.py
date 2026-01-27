@@ -40,7 +40,7 @@ def get_all_visitors(
 def get_visitor_by_access_code(db: Session, access_code: str):
     return db.query(Visitor).filter(Visitor.access_code == access_code).first()
 
-def create_visitor(db: Session, visitor: VisitorCreate):
+def create_visitor(db: Session, visitor: VisitorCreate, tenant_id: int):
     # Generate a unique access code (e.g., for QR)
     access_code = str(uuid.uuid4())[:8].upper()
     
@@ -51,6 +51,7 @@ def create_visitor(db: Session, visitor: VisitorCreate):
         purpose=visitor.purpose,
         expected_arrival=visitor.expected_arrival,
         host_id=visitor.host_id,
+        tenant_id=tenant_id,
         access_code=access_code,
         status=VisitorStatus.PENDING
     )
@@ -59,7 +60,11 @@ def create_visitor(db: Session, visitor: VisitorCreate):
     db.refresh(db_visitor)
     return db_visitor
 
-def update_visitor(db: Session, db_visitor: Visitor, visitor_update: VisitorUpdate):
+def update_visitor(db: Session, db_visitor: Visitor, visitor_update: VisitorUpdate, tenant_id: int = None):
+    # Optional tenant verification if provided
+    if tenant_id and db_visitor.tenant_id != tenant_id:
+        return None
+        
     update_data = visitor_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_visitor, key, value)

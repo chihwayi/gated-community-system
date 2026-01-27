@@ -1,114 +1,86 @@
-# Deployment Guide (Client Testing and Staging)
+# Deployment Guide (Remote Server & Multi-Tenancy)
 
-This document describes how to run the signed-out system for client demos and testing while development continues. It covers local staging, Docker-based deployment, and tenant branding setup.
+This document describes how to deploy the Gated Community System to a remote server (VPS or Cloud) with multi-tenancy support and no CORS issues.
 
-## Prerequisites
+## Architecture
 
-- Docker and Docker Compose
-- Environment variables set for backend and web portal
-- Minio running with accessible bucket and presigned URL support
+- **Nginx (Reverse Proxy)**: Listens on port 80/443. Routes traffic to Frontend and Backend. Handles CORS by serving everything from the same origin.
+- **Web Portal (Next.js)**: Runs on port 3000 (internal).
+- **Backend (FastAPI)**: Runs on port 8000 (internal).
+- **PostgreSQL**: Database.
+- **Minio**: Object storage.
 
-## Clone and Checkout Stable Release
- 
+## Multi-Tenancy Access
+
+The system supports multi-tenancy via subdomains or query parameters.
+
+### Option 1: Subdomains (Recommended)
+If you have a domain (e.g., `mycommunity.com`) and wildcard DNS setup (`*.mycommunity.com` -> Server IP):
+- `tenant1.mycommunity.com` -> Loads Tenant 1 branding
+- `tenant2.mycommunity.com` -> Loads Tenant 2 branding
+
+### Option 2: IP-Based / Query Parameter (Testing/Simple Setup)
+If you only have an IP address (e.g., `173.212.195.88`):
+- `http://173.212.195.88/?tenant=tenant1` -> Loads Tenant 1 branding
+- `http://173.212.195.88/?tenant=tenant2` -> Loads Tenant 2 branding
+
+## Remote Server Deployment Steps
+
+### 1. Prerequisites
+- A remote server (Ubuntu/Debian recommended) with public IP.
+- Docker and Docker Compose installed.
+- Git installed.
+
+### 2. Clone Repository
 ```bash
 git clone https://github.com/chihwayi/gated-community-system.git
 cd gated-community-system
-git checkout v1.0.0-single-tenant
 ```
- 
-## Configuration (Crucial for Server Deployment)
- 
-Before starting, create a `.env` file to tell the system your public IP address (so browsers can connect).
- 
-1. Copy the example:
-   ```bash
-   cp .env.example .env
-   ```
- 
-2. Edit `.env` with your server's IP:
-   ```bash
-   nano .env
-   ```
-   
-   Change `DOMAIN=173.212.195.88` to your actual IP if different.
-   
-   *Example content:*
-   ```env
-   DOMAIN=173.212.195.88
-   NEXT_PUBLIC_API_URL=http://173.212.195.88:8000/api/v1
-   BACKEND_CORS_ORIGINS=["http://173.212.195.88:3000"]
-   MINIO_ENDPOINT=173.212.195.88:9000
-   ```
- 
-## Start Services
- 
+
+### 3. Configure Environment
+Create a `.env` file from the example:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+**Crucial Settings for Remote Server:**
+- `DOMAIN`: Set to your server's Public IP or Domain Name.
+- `NEXT_PUBLIC_API_URL`: `http://<YOUR_IP_OR_DOMAIN>/api/v1` (Note: No port 8000, goes through Nginx).
+- `BACKEND_CORS_ORIGINS`: `["http://<YOUR_IP_OR_DOMAIN>"]` (Allowed origin is now the Nginx entry point).
+- `MINIO_ENDPOINT`: `<YOUR_IP_OR_DOMAIN>:9000` (or proxy via Nginx if configured).
+
+Example `.env` for IP `173.212.195.88`:
+```env
+DOMAIN=173.212.195.88
+NEXT_PUBLIC_API_URL=http://173.212.195.88/api/v1
+BACKEND_CORS_ORIGINS=["http://173.212.195.88"]
+MINIO_ENDPOINT=173.212.195.88:9000
+```
+
+### 4. Start Services
 ```bash
 docker-compose up -d --build
 ```
 
-Services:
-- Backend API: http://localhost:8000
-- Web Portal: http://localhost:3000
-- Minio: http://localhost:9000
+### 5. Verify Deployment
+- **Frontend**: Visit `http://<YOUR_IP>`
+- **Backend API**: Visit `http://<YOUR_IP>/api/v1/health` or `http://<YOUR_IP>/docs`
+- **Tenant Check**: Visit `http://<YOUR_IP>/?tenant=default` (or any slug you created).
 
-## Environment Configuration
+## Initial Setup & Super Admin
 
-Backend configuration: [config.py](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/backend/app/core/config.py)
-- Set CORS origins to include the web portal host
-- Configure Minio credentials and bucket
+1. **Seed Data**: The system initializes with default data.
+2. **Create Super Admin**:
+   Access the database or use the initial seed credentials (usually `admin@example.com` / `changethis`).
+3. **Create Tenants**:
+   Use the Super Admin API (via Swagger UI at `/docs`) to create new tenants.
+   - Endpoint: `POST /api/v1/tenants/`
+   - Body: `{"name": "Sunset Villas", "slug": "sunset", "logo_url": "..."}`
 
-Web portal configuration:
-- Next.js environment via `.env.local` (not committed)
-- API base URL pointing to backend (http://localhost:8000)
+## Production Considerations
 
-## Seeding Data
-
-The system automatically runs migrations and seeds initial data (default admin user) on startup via the `start.sh` script.
-
-To reset or re-seed manually:
-
-```bash
-docker exec -it backend bash -lc "python initial_data.py"
-```
-
-## Media Storage Setup
-
-- Ensure `uploads` bucket exists and has read policy
-- URL generation handled by: [storage.py](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/backend/app/core/storage.py)
-
-## Creating a Demo Admin
-
-- Use the login page at http://localhost:3000/login
-- If no admin exists, create via API or seed scripts
-
-## Branding a Tenant (Preview)
-
-For multi-tenant previews, configure tenant branding (logo/color) using placeholder data until the private Super Admin portal is available:
-- Upload a logo via the resident Settings page (Minio-backed)
-- Apply colors via CSS variables or theme config in [globals.css](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/web-portal/app/globals.css) and [Providers.tsx](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/web-portal/components/Providers.tsx)
-
-## Payments (Demo Mode)
-
-- The financial module supports payment recording and verification
-- Per-tenant payment gateway keys will be managed in the private control plane
-- In demos, simulate payment verification via admin panel
-
-## Production Notes
-
-- Use HTTPS for both API and web portal
-- Configure environment variables securely via your orchestration platform
-- Set proper CORS, CSRF protections, and session timeouts
-- Keep Super Admin portal private and on a restricted domain
-
-## Troubleshooting
-
-- CORS errors: verify backend origins in config
-- Image access: ensure Minio bucket policy allows public reads
-- Presigned URL failures: check host:port in Minio and reverse proxy settings
-
-## References
-
-- Backend API docs: http://localhost:8000/docs
-- Compose file: [docker-compose.yml](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/docker-compose.yml)
-- Storage: [storage.py](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/backend/app/core/storage.py)
-
+- **SSL/HTTPS**: For production, update `nginx/nginx.conf` to handle SSL certificates (Let's Encrypt via Certbot recommended) and listen on 443.
+- **Security**: Change default passwords in `.env`.
+- **Backups**: Backup `postgres_data` and `minio_data` volumes regularly.

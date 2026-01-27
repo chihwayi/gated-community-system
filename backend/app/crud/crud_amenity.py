@@ -3,21 +3,24 @@ from sqlalchemy.orm import Session
 from app.models.all_models import Amenity
 from app.schemas import amenity as schemas
 
-def get_amenity(db: Session, amenity_id: int) -> Optional[Amenity]:
-    return db.query(Amenity).filter(Amenity.id == amenity_id).first()
+def get_amenity(db: Session, amenity_id: int, tenant_id: int = None) -> Optional[Amenity]:
+    query = db.query(Amenity).filter(Amenity.id == amenity_id)
+    if tenant_id:
+        query = query.filter(Amenity.tenant_id == tenant_id)
+    return query.first()
 
-def get_amenities(db: Session, skip: int = 0, limit: int = 100) -> List[Amenity]:
-    return db.query(Amenity).offset(skip).limit(limit).all()
+def get_amenities(db: Session, tenant_id: int, skip: int = 0, limit: int = 100) -> List[Amenity]:
+    return db.query(Amenity).filter(Amenity.tenant_id == tenant_id).offset(skip).limit(limit).all()
 
-def create_amenity(db: Session, amenity: schemas.AmenityCreate) -> Amenity:
-    db_amenity = Amenity(**amenity.model_dump())
+def create_amenity(db: Session, amenity: schemas.AmenityCreate, tenant_id: int) -> Amenity:
+    db_amenity = Amenity(**amenity.model_dump(), tenant_id=tenant_id)
     db.add(db_amenity)
     db.commit()
     db.refresh(db_amenity)
     return db_amenity
 
-def update_amenity(db: Session, amenity_id: int, amenity_update: schemas.AmenityUpdate) -> Optional[Amenity]:
-    db_amenity = get_amenity(db, amenity_id)
+def update_amenity(db: Session, amenity_id: int, amenity_update: schemas.AmenityUpdate, tenant_id: int) -> Optional[Amenity]:
+    db_amenity = db.query(Amenity).filter(Amenity.id == amenity_id, Amenity.tenant_id == tenant_id).first()
     if not db_amenity:
         return None
     
@@ -30,8 +33,8 @@ def update_amenity(db: Session, amenity_id: int, amenity_update: schemas.Amenity
     db.refresh(db_amenity)
     return db_amenity
 
-def delete_amenity(db: Session, amenity_id: int) -> Optional[Amenity]:
-    db_amenity = get_amenity(db, amenity_id)
+def delete_amenity(db: Session, amenity_id: int, tenant_id: int) -> Optional[Amenity]:
+    db_amenity = db.query(Amenity).filter(Amenity.id == amenity_id, Amenity.tenant_id == tenant_id).first()
     if not db_amenity:
         return None
     

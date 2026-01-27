@@ -14,7 +14,7 @@ def send_test_notification(
     type: str,
     target: str,
     message: str,
-    current_user: User = Depends(deps.get_current_active_superuser)
+    current_user: User = Depends(deps.get_current_active_admin)
 ) -> Any:
     """
     Test external communication (Admin only).

@@ -15,10 +15,17 @@ def create_booking(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+        
     amenity = crud_amenity.get_amenity(db=db, amenity_id=booking_in.amenity_id)
     if not amenity:
         raise HTTPException(status_code=404, detail="Amenity not found")
-    return crud_booking.create_booking(db=db, booking=booking_in, user_id=current_user.id)
+        
+    if amenity.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Amenity not found")
+        
+    return crud_booking.create_booking(db=db, booking=booking_in, user_id=current_user.id, tenant_id=current_user.tenant_id)
 
 @router.get("/", response_model=List[schemas.Booking])
 def read_bookings(
@@ -31,11 +38,14 @@ def read_bookings(
 ) -> Any:
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
+    
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
 
     if current_user.role == UserRole.ADMIN:
-        return crud_booking.get_bookings(db=db, skip=skip, limit=limit, start_date=start, end_date=end)
+        return crud_booking.get_bookings(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit, start_date=start, end_date=end)
     else:
-        return crud_booking.get_bookings(db=db, skip=skip, limit=limit, user_id=current_user.id, start_date=start, end_date=end)
+        return crud_booking.get_bookings(db=db, tenant_id=current_user.tenant_id, skip=skip, limit=limit, user_id=current_user.id, start_date=start, end_date=end)
 
 @router.patch("/{booking_id}", response_model=schemas.Booking)
 def update_booking(
@@ -44,8 +54,14 @@ def update_booking(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
     booking = crud_booking.get_booking(db=db, booking_id=booking_id)
     if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+        
+    if booking.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Booking not found")
         
     if current_user.role != UserRole.ADMIN and booking.user_id != current_user.id:
