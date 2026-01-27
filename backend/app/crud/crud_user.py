@@ -10,10 +10,12 @@ def get_by_email(db: Session, email: str) -> Optional[User]:
 def get_user(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
-def get_multi(db: Session, skip: int = 0, limit: int = 100, role: Optional[str] = None) -> List[User]:
+def get_multi(db: Session, skip: int = 0, limit: int = 100, role: Optional[str] = None, tenant_id: Optional[int] = None) -> List[User]:
     query = db.query(User)
     if role:
         query = query.filter(User.role == role)
+    if tenant_id is not None:
+        query = query.filter(User.tenant_id == tenant_id)
     return query.offset(skip).limit(limit).all()
 
 def create(db: Session, obj_in: UserCreate) -> User:
@@ -22,6 +24,7 @@ def create(db: Session, obj_in: UserCreate) -> User:
         hashed_password=get_password_hash(obj_in.password),
         full_name=obj_in.full_name,
         phone_number=obj_in.phone_number,
+        tenant_id=obj_in.tenant_id,
         role=obj_in.role,
         is_active=obj_in.is_active,
         is_password_changed=False # Explicitly set to False for new users

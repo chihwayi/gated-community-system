@@ -1,19 +1,33 @@
 import logging
 from app.db.session import SessionLocal
-from app.crud import crud_user
+from app.crud import crud_user, crud_tenant
 from app.schemas.user import UserCreate, UserRole
+from app.schemas.tenant import TenantCreate
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def init_db() -> None:
     db = SessionLocal()
+    tenant = crud_tenant.get_by_slug(db, slug="default")
+    if not tenant:
+        tenant_in = TenantCreate(
+            name="Default Community",
+            slug="default",
+            is_active=True,
+        )
+        tenant = crud_tenant.create(db, obj_in=tenant_in)
+        logger.info("Default tenant created")
+    else:
+        logger.info("Default tenant already exists")
+
     user = crud_user.get_by_email(db, email="admin@example.com")
     if not user:
         user_in = UserCreate(
             email="admin@example.com",
             password="adminpassword",
             full_name="System Admin",
+            tenant_id=tenant.id,
             role=UserRole.ADMIN,
             is_active=True,
         )
@@ -29,6 +43,7 @@ def init_db() -> None:
             email="resident@example.com",
             password="residentpassword",
             full_name="John Doe",
+            tenant_id=tenant.id,
             role=UserRole.RESIDENT,
             is_active=True,
         )
@@ -42,6 +57,7 @@ def init_db() -> None:
             email="guard@example.com",
             password="guardpassword",
             full_name="Security Guard",
+            tenant_id=tenant.id,
             role=UserRole.GUARD,
             is_active=True,
         )

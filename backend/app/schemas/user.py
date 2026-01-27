@@ -11,6 +11,7 @@ class UserBase(BaseModel):
     phone_number: Optional[str] = None
     house_address: Optional[str] = None
     profile_picture: Optional[str] = None
+    tenant_id: Optional[int] = None
     role: UserRole = UserRole.RESIDENT
     is_active: Optional[bool] = True
 

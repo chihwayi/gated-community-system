@@ -20,7 +20,7 @@ def read_users(
     """
     Retrieve all users (Admin only). Optionally filter by role.
     """
-    users = crud_user.get_multi(db, skip=skip, limit=limit, role=role)
+    users = crud_user.get_multi(db, skip=skip, limit=limit, role=role, tenant_id=current_user.tenant_id)
     return users
 
 @router.post("/", response_model=UserSchema)

@@ -10,6 +10,7 @@ from app.db.session import SessionLocal
 from app.models import all_models as models
 from app.schemas import user as schemas
 from app.schemas.token import TokenPayload
+from app.models.all_models import Tenant
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -60,3 +61,16 @@ def get_current_active_superuser(
             status_code=400, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+def get_current_tenant(
+    current_user: models.User = Depends(get_current_user),
+) -> Tenant:
+    """
+    Resolve the current tenant from the authenticated user.
+    In future, this can be extended to resolve by subdomain or header.
+    """
+    if not current_user.tenant_id or not current_user.tenant:
+        raise HTTPException(status_code=400, detail="Tenant not associated with user")
+    if not current_user.tenant.is_active:
+        raise HTTPException(status_code=403, detail="Tenant is suspended")
+    return current_user.tenant

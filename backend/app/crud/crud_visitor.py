@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlalchemy.orm import Session
-from app.models.all_models import Visitor, VisitorStatus
+from sqlalchemy import and_
+from app.models.all_models import Visitor, VisitorStatus, User
 from app.schemas.visitor import VisitorCreate, VisitorUpdate
 import uuid
 
@@ -16,7 +17,8 @@ def get_all_visitors(
     limit: int = 100, 
     status: Optional[str] = None,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    tenant_id: Optional[int] = None,
 ):
     query = db.query(Visitor)
     
@@ -28,6 +30,10 @@ def get_all_visitors(
         
     if end_date:
         query = query.filter(Visitor.created_at <= end_date)
+    
+    # Enforce tenant isolation via host's tenant
+    if tenant_id is not None:
+        query = query.join(User, Visitor.host_id == User.id).filter(User.tenant_id == tenant_id)
         
     return query.offset(skip).limit(limit).all()
 

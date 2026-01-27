@@ -130,12 +130,24 @@ class DocumentCategory(str, enum.Enum):
     FORM = "form"
     OTHER = "other"
 
-# Models
+class Tenant(Base):
+    __tablename__ = "tenants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    slug = Column(String, unique=True, index=True, nullable=False)
+    logo_url = Column(String, nullable=True)
+    primary_color = Column(String, nullable=True)
+    accent_color = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, index=True)
@@ -149,6 +161,8 @@ class User(Base):
     mfa_secret = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    tenant = relationship("Tenant", backref="users")
 
 class Property(Base):
     __tablename__ = "properties"

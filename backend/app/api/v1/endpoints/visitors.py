@@ -29,7 +29,13 @@ def read_visitors(
         return crud_visitor.get_visitors_by_host(db=db, host_id=current_user.id, skip=skip, limit=limit)
     
     return crud_visitor.get_all_visitors(
-        db=db, skip=skip, limit=limit, status=status, start_date=start_date, end_date=end_date
+        db=db,
+        skip=skip,
+        limit=limit,
+        status=status,
+        start_date=start_date,
+        end_date=end_date,
+        tenant_id=current_user.tenant_id,
     )
 
 @router.post("/", response_model=schemas.Visitor)
