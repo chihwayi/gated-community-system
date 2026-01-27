@@ -9,15 +9,39 @@ This document describes how to run the signed-out system for client demos and te
 - Minio running with accessible bucket and presigned URL support
 
 ## Clone and Checkout Stable Release
-
+ 
 ```bash
 git clone https://github.com/chihwayi/gated-community-system.git
 cd gated-community-system
 git checkout v1.0.0-single-tenant
 ```
-
+ 
+## Configuration (Crucial for Server Deployment)
+ 
+Before starting, create a `.env` file to tell the system your public IP address (so browsers can connect).
+ 
+1. Copy the example:
+   ```bash
+   cp .env.example .env
+   ```
+ 
+2. Edit `.env` with your server's IP:
+   ```bash
+   nano .env
+   ```
+   
+   Change `DOMAIN=173.212.195.88` to your actual IP if different.
+   
+   *Example content:*
+   ```env
+   DOMAIN=173.212.195.88
+   NEXT_PUBLIC_API_URL=http://173.212.195.88:8000/api/v1
+   BACKEND_CORS_ORIGINS=["http://173.212.195.88:3000"]
+   MINIO_ENDPOINT=173.212.195.88:9000
+   ```
+ 
 ## Start Services
-
+ 
 ```bash
 docker-compose up -d --build
 ```

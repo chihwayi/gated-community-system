@@ -6,30 +6,36 @@ import logging
 logger = logging.getLogger(__name__)
 
 import json
+import os
 
 class StorageClient:
     def __init__(self):
-        # Internal client for backend operations (connecting to minio container)
-        self.client = Minio(
-            settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=settings.MINIO_SECURE
-        )
+        # Allow overriding endpoint via env var for public access (e.g. 173.212.195.88:9000)
+        # But internally, the container talks to 'minio:9000'
+        self.public_endpoint = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+        self.internal_endpoint = "minio:9000"
         
-        # External client for generating presigned URLs (accessible by browser)
-        # This ensures the signature matches the Host header (localhost:9000)
-        # We specify region="us-east-1" to prevent the client from trying to connect to localhost:9000
-        # inside the container to auto-detect the region (which would fail).
-        self.signing_client = Minio(
-            "localhost:9000",
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=settings.MINIO_SECURE,
-            region="us-east-1"
-        )
-        
+        self.access_key = settings.MINIO_ACCESS_KEY
+        self.secret_key = settings.MINIO_SECRET_KEY
         self.bucket_name = settings.MINIO_BUCKET_UPLOADS
+        self.secure = settings.MINIO_SECURE
+
+        # Client for internal operations (uploading)
+        self.client = Minio(
+            self.internal_endpoint,
+            access_key=self.access_key,
+            secret_key=self.secret_key,
+            secure=self.secure
+        )
+
+        # Client for generating public URLs (presigned)
+        self.signing_client = Minio(
+            self.public_endpoint,
+            access_key=self.access_key,
+            secret_key=self.secret_key,
+            secure=self.secure
+        )
+        
         self._ensure_bucket_exists()
 
     def _ensure_bucket_exists(self):
