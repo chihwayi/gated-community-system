@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Save, Loader2 } from "lucide-react";
+import { X, Save, Loader2, Upload } from "lucide-react";
 import { tenantService, Tenant, TenantUpdate } from "@/services/tenantService";
+import { fileService } from "@/services/fileService";
 
 interface EditTenantModalProps {
   isOpen: boolean;
@@ -18,10 +19,15 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
     domain: "",
     is_active: true,
     primary_color: "",
-    accent_color: ""
+    accent_color: "",
+    logo_url: "",
+    max_admins: 1,
+    max_guards: 2,
+    max_residents: 20
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     if (tenant) {
@@ -31,7 +37,11 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
         domain: tenant.domain || "",
         is_active: tenant.is_active,
         primary_color: tenant.primary_color || "",
-        accent_color: tenant.accent_color || ""
+        accent_color: tenant.accent_color || "",
+        logo_url: tenant.logo_url || "",
+        max_admins: tenant.max_admins ?? 1,
+        max_guards: tenant.max_guards ?? 2,
+        max_residents: tenant.max_residents ?? 20
       });
     }
   }, [tenant]);
@@ -59,8 +69,24 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
     
     setFormData(prev => ({
         ...prev,
-        [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+        [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
+                type === 'number' ? parseInt(value) || 0 : value
     }));
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+        setUploadingLogo(true);
+        const url = await fileService.upload(file);
+        setFormData(prev => ({ ...prev, logo_url: url }));
+    } catch (err: any) {
+        setError("Failed to upload logo: " + err.message);
+    } finally {
+        setUploadingLogo(false);
+    }
   };
 
   return (
@@ -82,6 +108,26 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
 
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Community Details</h3>
+            
+            {/* Logo Upload */}
+            <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden">
+                    {formData.logo_url ? (
+                        <img src={formData.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                        <Upload className="w-6 h-6 text-slate-600" />
+                    )}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Community Logo</label>
+                    <label className="inline-flex items-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm rounded-lg cursor-pointer transition-colors">
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                        <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                    </label>
+                </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">Name</label>
@@ -174,6 +220,43 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
                 <label htmlFor="is_active" className="text-sm font-medium text-slate-300">
                     Active Status
                 </label>
+            </div>
+
+            <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider pt-4 border-t border-slate-800">Package Limits</h3>
+            <div className="grid grid-cols-3 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Admins</label>
+                    <input
+                        type="number"
+                        name="max_admins"
+                        min="0"
+                        value={formData.max_admins}
+                        onChange={handleChange}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Guards</label>
+                    <input
+                        type="number"
+                        name="max_guards"
+                        min="0"
+                        value={formData.max_guards}
+                        onChange={handleChange}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Residents</label>
+                    <input
+                        type="number"
+                        name="max_residents"
+                        min="0"
+                        value={formData.max_residents}
+                        onChange={handleChange}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                    />
+                </div>
             </div>
           </div>
 

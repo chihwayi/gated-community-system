@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.core import security
 from app.crud import crud_user
-from app.models.all_models import User, UserRole
+from app.models.all_models import User, UserRole, Tenant
 from app.schemas.user import User as UserSchema, UserCreate, UserUpdate, UserPasswordChange, UserPasswordReset
 
 router = APIRouter()
@@ -33,6 +33,34 @@ def create_user(
     """
     Create new user (Admin only).
     """
+    # Enforce tenant isolation & Limits
+    if current_user.role != UserRole.SUPER_ADMIN:
+        user_in.tenant_id = current_user.tenant_id
+
+    if user_in.tenant_id:
+        tenant = db.query(Tenant).filter(Tenant.id == user_in.tenant_id).first()
+        if tenant:
+            limit = None
+            if user_in.role == UserRole.ADMIN:
+                limit = tenant.max_admins
+            elif user_in.role == UserRole.GUARD:
+                limit = tenant.max_guards
+            elif user_in.role == UserRole.RESIDENT:
+                limit = tenant.max_residents
+            
+            if limit is not None:
+                current_count = db.query(User).filter(
+                    User.tenant_id == user_in.tenant_id,
+                    User.role == user_in.role,
+                    User.is_active == True
+                ).count()
+                
+                if current_count >= limit:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"User limit reached for role {user_in.role}. Limit is {limit}."
+                    )
+
     user = crud_user.get_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(

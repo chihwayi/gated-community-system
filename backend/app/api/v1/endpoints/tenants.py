@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.crud import crud_tenant
-from app.models.all_models import User, Tenant as TenantModel
-from app.schemas.tenant import Tenant, TenantCreate, TenantUpdate
+from app.crud import crud_tenant, crud_user
+from app.models.all_models import User, Tenant as TenantModel, UserRole
+from app.schemas.tenant import Tenant, TenantCreate, TenantUpdate, TenantCreateWithAdmin
+from app.schemas.user import UserCreate
 
 router = APIRouter()
 
@@ -66,7 +67,7 @@ def get_tenant_by_slug(
 def create_tenant(
     *,
     db: Session = Depends(deps.get_db),
-    tenant_in: TenantCreate,
+    tenant_in: TenantCreateWithAdmin,
     current_user: User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
@@ -78,7 +79,28 @@ def create_tenant(
             status_code=400,
             detail="The tenant with this slug already exists in the system.",
         )
+    
+    # Check if admin email already exists
+    user = crud_user.get_by_email(db, email=tenant_in.admin_email)
+    if user:
+         raise HTTPException(
+            status_code=400,
+            detail="The admin email already exists in the system.",
+        )
+
+    # Create Tenant
     tenant = crud_tenant.create(db, obj_in=tenant_in)
+
+    # Create Admin User
+    user_in = UserCreate(
+        email=tenant_in.admin_email,
+        password=tenant_in.admin_password,
+        full_name=tenant_in.admin_name,
+        role=UserRole.ADMIN,
+        tenant_id=tenant.id
+    )
+    crud_user.create(db, obj_in=user_in)
+
     return tenant
 
 

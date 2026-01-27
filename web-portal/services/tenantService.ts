@@ -9,6 +9,9 @@ export interface Tenant {
     logo_url?: string;
     primary_color?: string;
     accent_color?: string;
+    max_admins?: number;
+    max_guards?: number;
+    max_residents?: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -21,6 +24,9 @@ export interface TenantCreate {
     admin_password: string;
     admin_name: string;
     is_active?: boolean;
+    max_admins?: number;
+    max_guards?: number;
+    max_residents?: number;
 }
 
 export interface TenantUpdate {
@@ -31,6 +37,9 @@ export interface TenantUpdate {
     logo_url?: string;
     primary_color?: string;
     accent_color?: string;
+    max_admins?: number;
+    max_guards?: number;
+    max_residents?: number;
 }
 
 export const tenantService = {

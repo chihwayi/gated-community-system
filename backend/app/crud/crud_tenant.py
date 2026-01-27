@@ -24,6 +24,9 @@ def create(db: Session, obj_in: TenantCreate) -> Tenant:
         primary_color=obj_in.primary_color,
         accent_color=obj_in.accent_color,
         is_active=obj_in.is_active,
+        max_admins=obj_in.max_admins,
+        max_guards=obj_in.max_guards,
+        max_residents=obj_in.max_residents,
     )
     db.add(db_obj)
     db.commit()

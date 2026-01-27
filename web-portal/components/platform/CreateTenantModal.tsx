@@ -18,7 +18,10 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
     admin_name: "",
     admin_email: "",
     admin_password: "",
-    is_active: true
+    is_active: true,
+    max_admins: 1,
+    max_guards: 2,
+    max_residents: 20
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -42,10 +45,10 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
         ...prev,
-        [name]: value
+        [name]: type === 'number' ? parseInt(value) || 0 : value
     }));
     
     // Auto-generate slug from name if slug is empty
@@ -152,6 +155,45 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
                     placeholder="••••••••"
                 />
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-slate-800">
+            <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Package Limits</h3>
+            <div className="grid grid-cols-3 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Admins</label>
+                    <input
+                        type="number"
+                        name="max_admins"
+                        min="0"
+                        value={formData.max_admins}
+                        onChange={handleChange}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Guards</label>
+                    <input
+                        type="number"
+                        name="max_guards"
+                        min="0"
+                        value={formData.max_guards}
+                        onChange={handleChange}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Residents</label>
+                    <input
+                        type="number"
+                        name="max_residents"
+                        min="0"
+                        value={formData.max_residents}
+                        onChange={handleChange}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                    />
+                </div>
             </div>
           </div>
 

@@ -141,6 +141,12 @@ class Tenant(Base):
     primary_color = Column(String, nullable=True)
     accent_color = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    
+    # Package Limits (0 or null means unlimited, but typically set to a number)
+    max_admins = Column(Integer, default=1)
+    max_guards = Column(Integer, default=2)
+    max_residents = Column(Integer, default=20)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
