@@ -6,12 +6,15 @@ export interface Tenant {
     slug: string;
     domain?: string;
     is_active: boolean;
+    plan?: string;
+    subscription_end_date?: string;
     logo_url?: string;
     primary_color?: string;
     accent_color?: string;
     max_admins?: number;
     max_guards?: number;
     max_residents?: number;
+    package_id?: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -24,9 +27,15 @@ export interface TenantCreate {
     admin_password: string;
     admin_name: string;
     is_active?: boolean;
+    plan?: string;
+    subscription_end_date?: string;
     max_admins?: number;
     max_guards?: number;
     max_residents?: number;
+    package_id?: number;
+    logo_url?: string;
+    primary_color?: string;
+    accent_color?: string;
 }
 
 export interface TenantUpdate {
@@ -34,12 +43,29 @@ export interface TenantUpdate {
     slug?: string;
     domain?: string;
     is_active?: boolean;
+    plan?: string;
+    subscription_end_date?: string;
     logo_url?: string;
     primary_color?: string;
     accent_color?: string;
     max_admins?: number;
     max_guards?: number;
     max_residents?: number;
+    package_id?: number;
+}
+
+export interface TenantUsage {
+    plan: string;
+    limits: {
+        max_admins: number;
+        max_guards: number;
+        max_residents: number;
+    };
+    usage: {
+        admins: number;
+        guards: number;
+        residents: number;
+    };
 }
 
 export const tenantService = {
@@ -48,9 +74,19 @@ export const tenantService = {
         return response.data;
     },
 
+    getTenantUsage: async (): Promise<TenantUsage> => {
+        const response = await api.get<TenantUsage>('/tenants/me/usage');
+        return response.data;
+    },
+
     // Super Admin methods
     getPlatformStats: async (): Promise<{ total_tenants: number; active_tenants: number; total_users: number }> => {
         const response = await api.get<{ total_tenants: number; active_tenants: number; total_users: number }>('/tenants/stats');
+        return response.data;
+    },
+
+    getPublicTenants: async (skip = 0, limit = 100): Promise<Tenant[]> => {
+        const response = await api.get<Tenant[]>(`/tenants/public?skip=${skip}&limit=${limit}`);
         return response.data;
     },
 

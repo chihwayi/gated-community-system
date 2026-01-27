@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 import { Providers } from "@/components/Providers";
+import { Suspense } from "react";
 
 export default function RootLayout({
   children,
@@ -39,7 +40,9 @@ export default function RootLayout({
       <body
         className={`${outfit.variable} ${jetbrainsMono.variable} ${sora.variable} ${firaCode.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Suspense fallback={<div className="min-h-screen bg-slate-950" />}>
+          <Providers>{children}</Providers>
+        </Suspense>
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Save, Loader2, Upload } from "lucide-react";
 import { tenantService, Tenant, TenantUpdate } from "@/services/tenantService";
 import { fileService } from "@/services/fileService";
+import { packageService, Package } from "@/services/packageService";
 
 interface EditTenantModalProps {
   isOpen: boolean;
@@ -23,11 +24,32 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
     logo_url: "",
     max_admins: 1,
     max_guards: 2,
-    max_residents: 20
+    max_residents: 20,
+    package_id: undefined
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loadingPackages, setLoadingPackages] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+        fetchPackages();
+    }
+  }, [isOpen]);
+
+  const fetchPackages = async () => {
+    try {
+        setLoadingPackages(true);
+        const data = await packageService.getAllPackages();
+        setPackages(data);
+    } catch (err) {
+        console.error("Failed to fetch packages", err);
+    } finally {
+        setLoadingPackages(false);
+    }
+  };
 
   useEffect(() => {
     if (tenant) {
@@ -41,10 +63,31 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
         logo_url: tenant.logo_url || "",
         max_admins: tenant.max_admins ?? 1,
         max_guards: tenant.max_guards ?? 2,
-        max_residents: tenant.max_residents ?? 20
+        max_residents: tenant.max_residents ?? 20,
+        package_id: tenant.package_id
       });
     }
   }, [tenant]);
+
+  const handlePackageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const pkgId = parseInt(e.target.value);
+    if (!pkgId) {
+        setFormData(prev => ({ ...prev, package_id: undefined }));
+        return;
+    }
+
+    const selectedPkg = packages.find(p => p.id === pkgId);
+    if (selectedPkg) {
+        setFormData(prev => ({
+            ...prev,
+            package_id: selectedPkg.id,
+            max_admins: selectedPkg.max_admins,
+            max_guards: selectedPkg.max_guards,
+            max_residents: selectedPkg.max_residents,
+            plan: selectedPkg.name.toLowerCase()
+        }));
+    }
+  };
 
   if (!isOpen || !tenant) return null;
 
@@ -91,7 +134,7 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-xl">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <h2 className="text-xl font-bold text-slate-100">Edit Community</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-200">
@@ -222,40 +265,62 @@ export default function EditTenantModal({ isOpen, onClose, onSuccess, tenant }: 
                 </label>
             </div>
 
-            <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider pt-4 border-t border-slate-800">Package Limits</h3>
-            <div className="grid grid-cols-3 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Admins</label>
-                    <input
-                        type="number"
-                        name="max_admins"
-                        min="0"
-                        value={formData.max_admins}
-                        onChange={handleChange}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
-                    />
+            <div className="space-y-4 pt-4 border-t border-slate-800">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Package & Limits</h3>
+                    {loadingPackages && <Loader2 className="w-3 h-3 animate-spin text-purple-500" />}
                 </div>
+                
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Guards</label>
-                    <input
-                        type="number"
-                        name="max_guards"
-                        min="0"
-                        value={formData.max_guards}
-                        onChange={handleChange}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
-                    />
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Select Package</label>
+                    <select
+                        onChange={handlePackageChange}
+                        value={formData.package_id || ""}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500 appearance-none"
+                    >
+                        <option value="">Custom / No Package</option>
+                        {packages.map(pkg => (
+                            <option key={pkg.id} value={pkg.id}>
+                                {pkg.name} (${pkg.price}/mo) - {pkg.max_residents} Residents
+                            </option>
+                        ))}
+                    </select>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Residents</label>
-                    <input
-                        type="number"
-                        name="max_residents"
-                        min="0"
-                        value={formData.max_residents}
-                        onChange={handleChange}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
-                    />
+
+                <div className="grid grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Max Admins</label>
+                        <input
+                            type="number"
+                            name="max_admins"
+                            min="0"
+                            value={formData.max_admins}
+                            onChange={handleChange}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Max Guards</label>
+                        <input
+                            type="number"
+                            name="max_guards"
+                            min="0"
+                            value={formData.max_guards}
+                            onChange={handleChange}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Max Residents</label>
+                        <input
+                            type="number"
+                            name="max_residents"
+                            min="0"
+                            value={formData.max_residents}
+                            onChange={handleChange}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500"
+                        />
+                    </div>
                 </div>
             </div>
           </div>

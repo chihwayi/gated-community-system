@@ -17,6 +17,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        let isMounted = true;
         const fetchTenant = async () => {
             try {
                 // Determine slug from subdomain
@@ -43,26 +44,35 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                 console.log(`Resolving tenant for slug: ${slug}`);
                 const data = await tenantService.getTenantBySlug(slug);
-                setTenant(data);
                 
-                // Apply branding colors if available
-                if (data.primary_color) {
-                    document.documentElement.style.setProperty('--primary-brand', data.primary_color);
-                }
-                if (data.accent_color) {
-                    document.documentElement.style.setProperty('--accent-brand', data.accent_color);
+                if (isMounted) {
+                    setTenant(data);
+                    
+                    // Apply branding colors if available
+                    if (data.primary_color) {
+                        document.documentElement.style.setProperty('--primary-brand', data.primary_color);
+                    }
+                    if (data.accent_color) {
+                        document.documentElement.style.setProperty('--accent-brand', data.accent_color);
+                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch tenant:", err);
-                setError("Tenant not found");
-                // Fallback to a default or show error?
-                // For now, keep tenant null, UI can handle it.
+                if (isMounted) {
+                    setError("Tenant not found");
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchTenant();
+        
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     return (

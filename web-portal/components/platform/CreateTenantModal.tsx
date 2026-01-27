@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Loader2, Save, Upload } from "lucide-react";
 import { tenantService, TenantCreate } from "@/services/tenantService";
+import { fileService } from "@/services/fileService";
+import { packageService, Package } from "@/services/packageService";
 
 interface CreateTenantModalProps {
   isOpen: boolean;
@@ -25,6 +27,47 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loadingPackages, setLoadingPackages] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+        fetchPackages();
+    }
+  }, [isOpen]);
+
+  const fetchPackages = async () => {
+    try {
+        setLoadingPackages(true);
+        const data = await packageService.getAllPackages();
+        setPackages(data);
+    } catch (err) {
+        console.error("Failed to fetch packages", err);
+    } finally {
+        setLoadingPackages(false);
+    }
+  };
+
+  const handlePackageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const pkgId = parseInt(e.target.value);
+    if (!pkgId) {
+        setFormData(prev => ({ ...prev, package_id: undefined }));
+        return;
+    }
+
+    const selectedPkg = packages.find(p => p.id === pkgId);
+    if (selectedPkg) {
+        setFormData(prev => ({
+            ...prev,
+            package_id: selectedPkg.id,
+            max_admins: selectedPkg.max_admins,
+            max_guards: selectedPkg.max_guards,
+            max_residents: selectedPkg.max_residents,
+            plan: selectedPkg.name.toLowerCase() // Also set plan name if useful
+        }));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -41,6 +84,21 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
       setError(err.message || "Failed to create tenant");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+        setUploadingLogo(true);
+        const url = await fileService.upload(file);
+        setFormData(prev => ({ ...prev, logo_url: url }));
+    } catch (err: any) {
+        setError("Failed to upload logo: " + err.message);
+    } finally {
+        setUploadingLogo(false);
     }
   };
 
@@ -62,7 +120,7 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-xl">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <h2 className="text-xl font-bold text-slate-100">Create New Community</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-200">
@@ -79,6 +137,26 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
 
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Community Details</h3>
+            
+            {/* Logo Upload */}
+            <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden">
+                    {formData.logo_url ? (
+                        <img src={formData.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                        <Upload className="w-6 h-6 text-slate-600" />
+                    )}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Community Logo</label>
+                    <label className="inline-flex items-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm rounded-lg cursor-pointer transition-colors">
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                        <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                    </label>
+                </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">Name</label>
@@ -159,7 +237,27 @@ export default function CreateTenantModal({ isOpen, onClose, onSuccess }: Create
           </div>
 
           <div className="space-y-4 pt-4 border-t border-slate-800">
-            <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Package Limits</h3>
+            <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Package & Limits</h3>
+                {loadingPackages && <Loader2 className="w-3 h-3 animate-spin text-purple-500" />}
+            </div>
+            
+            <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Select Package</label>
+                <select
+                    onChange={handlePackageChange}
+                    value={formData.package_id || ""}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:border-purple-500 appearance-none"
+                >
+                    <option value="">Custom / No Package</option>
+                    {packages.map(pkg => (
+                        <option key={pkg.id} value={pkg.id}>
+                            {pkg.name} (${pkg.price}/mo) - {pkg.max_residents} Residents
+                        </option>
+                    ))}
+                </select>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">Max Admins</label>

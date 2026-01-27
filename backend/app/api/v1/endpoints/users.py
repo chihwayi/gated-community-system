@@ -41,12 +41,23 @@ def create_user(
         tenant = db.query(Tenant).filter(Tenant.id == user_in.tenant_id).first()
         if tenant:
             limit = None
-            if user_in.role == UserRole.ADMIN:
-                limit = tenant.max_admins
-            elif user_in.role == UserRole.GUARD:
-                limit = tenant.max_guards
-            elif user_in.role == UserRole.RESIDENT:
-                limit = tenant.max_residents
+            
+            # Dynamic Package Limits (Priority)
+            if tenant.package:
+                if user_in.role == UserRole.ADMIN:
+                    limit = tenant.package.max_admins
+                elif user_in.role == UserRole.GUARD:
+                    limit = tenant.package.max_guards
+                elif user_in.role == UserRole.RESIDENT:
+                    limit = tenant.package.max_residents
+            # Custom Tenant Limits (Fallback)
+            else:
+                if user_in.role == UserRole.ADMIN:
+                    limit = tenant.max_admins
+                elif user_in.role == UserRole.GUARD:
+                    limit = tenant.max_guards
+                elif user_in.role == UserRole.RESIDENT:
+                    limit = tenant.max_residents
             
             if limit is not None:
                 current_count = db.query(User).filter(

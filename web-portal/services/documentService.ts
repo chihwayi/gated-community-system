@@ -35,6 +35,6 @@ export const documentService = {
     const formData = new FormData();
     formData.append('file', file);
     // Assuming backend returns { url: "..." }
-    return api.post<{url: string}>('/utils/upload', formData);
+    return api.post<{url: string}>('/upload/', formData);
   }
 };

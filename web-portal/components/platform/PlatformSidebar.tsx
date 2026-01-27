@@ -7,7 +7,8 @@ import {
   Building2, 
   Settings, 
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Package
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -18,6 +19,7 @@ export default function PlatformSidebar() {
   const navItems = [
     { name: "Overview", href: "/platform", icon: LayoutDashboard },
     { name: "Tenants", href: "/platform/tenants", icon: Building2 },
+    { name: "Packages", href: "/platform/packages", icon: Package },
     { name: "Settings", href: "/platform/settings", icon: Settings },
   ];
 

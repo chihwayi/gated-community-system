@@ -16,6 +16,7 @@ import {
   Shield
 } from "lucide-react";
 import { visitorService, Visitor } from "@/services/visitorService";
+import SubscriptionStats from "@/components/dashboard/SubscriptionStats";
 
 export default function DashboardPage() {
   const [visitors, setVisitors] = useState<Visitor[]>([]);
@@ -88,6 +89,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Subscription Stats */}
+      <SubscriptionStats />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">

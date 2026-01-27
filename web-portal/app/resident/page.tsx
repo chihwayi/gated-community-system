@@ -40,9 +40,11 @@ import VisitorSection from "@/components/resident/VisitorSection";
 import SettingsSection from "@/components/resident/SettingsSection";
 import FamilySection from "@/components/resident/FamilySection";
 import { notificationService } from "@/services/notificationService";
+import { useTenant } from "@/context/TenantContext";
 
 export default function ResidentPortalPage() {
   const { user, logout } = useAuth();
+  const { tenant } = useTenant();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'visitors' | 'notices' | 'tickets' | 'amenities' | 'staff' | 'marketplace' | 'settings' | 'vehicles' | 'parcels' | 'community' | 'family'>('dashboard');
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSOSLoading, setIsSOSLoading] = useState(false);
@@ -94,18 +96,27 @@ export default function ResidentPortalPage() {
       {/* Sidebar */}
       <aside className="w-72 bg-slate-900/50 backdrop-blur-xl border-r border-white/5 p-6 hidden lg:flex flex-col fixed h-full z-10">
         <div className="mb-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg">
-              <ShieldCheck className="w-6 h-6 text-white" />
+          {tenant?.logo_url ? (
+            <div className="flex items-center gap-4 p-2 rounded-2xl bg-slate-800/50 border border-slate-700/50">
+                 <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center p-1.5 shrink-0">
+                    <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-contain" />
+                 </div>
+                 <h1 className="text-lg font-bold text-slate-100 leading-tight line-clamp-2">{tenant.name}</h1>
             </div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
-              Estate Portal
-            </h1>
-          </div>
-          <p className="text-sm text-slate-500 ml-1">Resident Dashboard</p>
+          ) : (
+            <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg">
+                <ShieldCheck className="w-6 h-6 text-white" />
+                </div>
+                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+                Estate Portal
+                </h1>
+            </div>
+          )}
+          {!tenant?.logo_url && <p className="text-sm text-slate-500 ml-1">Resident Dashboard</p>}
         </div>
         
-        <nav className="space-y-2 flex-1 overflow-y-auto min-h-0">
+        <nav className="space-y-2 flex-1 overflow-y-auto min-h-0 custom-scrollbar">
           {[
             { id: 'dashboard', icon: Home, label: "Dashboard" },
             { id: 'visitors', icon: Users, label: "Visitors" },
@@ -128,16 +139,19 @@ export default function ResidentPortalPage() {
               onClick={() => setActiveTab(item.id as any)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                 isActive
-                  ? "bg-cyan-500/10 text-cyan-400 font-medium" 
+                  ? "text-white shadow-lg shadow-black/20" 
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
               }`}
+              style={isActive ? {
+                 backgroundColor: 'var(--primary-brand, #06b6d4)',
+              } : {}}
             >
               <item.icon className={`w-5 h-5 transition-colors ${
-                isActive ? "text-cyan-400" : "text-slate-500 group-hover:text-slate-300"
+                isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300"
               }`} />
               <span>{item.label}</span>
               {isActive && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white/50 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
               )}
             </button>
           )})}

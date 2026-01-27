@@ -46,21 +46,23 @@ export default function Sidebar() {
   ];
 
   return (
-    <div className="w-64 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0">
+    <div className="w-64 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0 z-50">
       <div className="p-6">
         {tenant?.logo_url ? (
-            <div className="flex items-center gap-3">
-                 <img src={tenant.logo_url} alt={tenant.name} className="h-10 w-auto rounded-lg" />
-                 <h1 className="text-xl font-bold text-slate-100">{tenant.name}</h1>
+            <div className="flex items-center gap-4 p-2 rounded-2xl bg-slate-800/50 border border-slate-700/50">
+                 <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center p-1.5 shrink-0">
+                    <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-contain" />
+                 </div>
+                 <h1 className="text-lg font-bold text-slate-100 leading-tight line-clamp-2">{tenant.name}</h1>
             </div>
         ) : (
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent px-2">
             {tenant?.name || "Gated Community"}
             </h1>
         )}
       </div>
 
-      <nav className="flex-1 px-4 space-y-2 overflow-y-auto min-h-0">
+      <nav className="flex-1 px-4 space-y-2 overflow-y-auto min-h-0 custom-scrollbar">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -68,14 +70,20 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative overflow-hidden ${
                 isActive
-                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                  ? "text-white shadow-lg shadow-black/20"
                   : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
               }`}
+              style={isActive ? {
+                backgroundColor: 'var(--primary-brand, #06b6d4)',
+              } : {}}
             >
-              <Icon className="w-5 h-5" />
-              <span className="font-medium">{item.name}</span>
+              {isActive && (
+                <div className="absolute inset-0 bg-white/10" />
+              )}
+              <Icon className="w-5 h-5 relative z-10" />
+              <span className="font-medium relative z-10">{item.name}</span>
             </Link>
           );
         })}

@@ -31,9 +31,9 @@ def get_all_visitors(
     if end_date:
         query = query.filter(Visitor.created_at <= end_date)
     
-    # Enforce tenant isolation via host's tenant
+    # Enforce tenant isolation via tenant_id directly
     if tenant_id is not None:
-        query = query.join(User, Visitor.host_id == User.id).filter(User.tenant_id == tenant_id)
+        query = query.filter(Visitor.tenant_id == tenant_id)
         
     return query.offset(skip).limit(limit).all()
 

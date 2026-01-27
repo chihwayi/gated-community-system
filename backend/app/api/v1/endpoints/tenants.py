@@ -31,6 +31,81 @@ def get_platform_stats(
     }
 
 
+@router.get("/me/usage", response_model=dict)
+def get_my_tenant_usage(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_admin),
+) -> Any:
+    """
+    Get usage statistics for the current tenant (Tenant Admin).
+    """
+    if not current_user.tenant_id:
+         raise HTTPException(
+            status_code=400,
+            detail="User is not associated with any tenant.",
+        )
+        
+    tenant = db.query(TenantModel).filter(TenantModel.id == current_user.tenant_id).first()
+    if not tenant:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+        
+    # Count users by role
+    admins_count = db.query(User).filter(
+        User.tenant_id == tenant.id, 
+        User.role == UserRole.ADMIN,
+        User.is_active == True
+    ).count()
+    
+    guards_count = db.query(User).filter(
+        User.tenant_id == tenant.id, 
+        User.role == UserRole.GUARD,
+        User.is_active == True
+    ).count()
+    
+    residents_count = db.query(User).filter(
+        User.tenant_id == tenant.id, 
+        User.role == UserRole.RESIDENT,
+        User.is_active == True
+    ).count()
+    
+    # Determine limits (Dynamic Package > Custom)
+    max_admins = tenant.package.max_admins if tenant.package else tenant.max_admins
+    max_guards = tenant.package.max_guards if tenant.package else tenant.max_guards
+    max_residents = tenant.package.max_residents if tenant.package else tenant.max_residents
+
+    return {
+        "plan": tenant.plan,
+        "limits": {
+            "max_admins": max_admins,
+            "max_guards": max_guards,
+            "max_residents": max_residents,
+        },
+        "usage": {
+            "admins": admins_count,
+            "guards": guards_count,
+            "residents": residents_count,
+        }
+    }
+
+
+@router.get("/public", response_model=List[Tenant])
+def read_public_tenants(
+    db: Session = Depends(deps.get_db),
+    skip: int = 0,
+    limit: int = 100,
+) -> Any:
+    """
+    Retrieve public list of tenants.
+    """
+    tenants = crud_tenant.get_multi(db, skip=skip, limit=limit)
+    # Filter only active tenants
+    active_tenants = [t for t in tenants if t.is_active]
+    return active_tenants
+
+
 @router.get("/", response_model=List[Tenant])
 def read_tenants(
     db: Session = Depends(deps.get_db),

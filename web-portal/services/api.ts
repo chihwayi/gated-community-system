@@ -15,10 +15,7 @@ const handleResponse = async <T>(response: Response): Promise<{ data: T }> => {
   if (response.status === 401) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
-      // Only redirect if not already on login page to avoid loops
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
     throw new Error('Session expired. Please login again.');
   }

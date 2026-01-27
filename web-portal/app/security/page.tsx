@@ -21,9 +21,11 @@ import { staffService, Staff } from "@/services/staffService";
 import { incidentService, Incident } from "@/services/incidentService";
 import { securityService } from "@/services/securityService";
 import { useAuth } from "@/context/AuthContext";
+import { useTenant } from "@/context/TenantContext";
 
 export default function SecurityGuardPage() {
   const { logout } = useAuth();
+  const { tenant } = useTenant();
   const [accessCode, setAccessCode] = useState("");
   const [visitor, setVisitor] = useState<Visitor | null>(null);
   const [staff, setStaff] = useState<Staff | null>(null);
@@ -233,15 +235,27 @@ export default function SecurityGuardPage() {
       {/* Header */}
       <header className="bg-slate-900/80 backdrop-blur-md border-b border-white/5 p-4 sticky top-0 z-20">
         <div className="container mx-auto flex items-center justify-between max-w-4xl">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-900/20">
-              <Shield className="w-6 h-6 text-white" />
+          {tenant?.logo_url ? (
+            <div className="flex items-center gap-4">
+                 <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center p-1.5 shrink-0 border border-white/10">
+                    <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-contain" />
+                 </div>
+                 <div>
+                    <h1 className="text-xl font-bold tracking-tight text-white">{tenant.name}</h1>
+                    <p className="text-xs text-slate-400 font-medium">Gate Security</p>
+                 </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-white">Gate Security</h1>
-              <p className="text-xs text-slate-400 font-medium">Entry Control System</p>
+          ) : (
+            <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-900/20">
+                <Shield className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                <h1 className="text-xl font-bold tracking-tight text-white">Gate Security</h1>
+                <p className="text-xs text-slate-400 font-medium">Entry Control System</p>
+                </div>
             </div>
-          </div>
+          )}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-white/5">
             <div className="relative">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>

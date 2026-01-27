@@ -10,6 +10,9 @@ class TenantBase(BaseModel):
     primary_color: Optional[str] = None
     accent_color: Optional[str] = None
     is_active: bool = True
+    plan: Optional[str] = "free"
+    package_id: Optional[int] = None
+    subscription_end_date: Optional[datetime] = None
     max_admins: Optional[int] = 1
     max_guards: Optional[int] = 2
     max_residents: Optional[int] = 20
@@ -29,6 +32,8 @@ class TenantUpdate(TenantBase):
     name: Optional[str] = None
     slug: Optional[str] = None
     is_active: Optional[bool] = None
+    plan: Optional[str] = None
+    subscription_end_date: Optional[datetime] = None
     max_admins: Optional[int] = None
     max_guards: Optional[int] = None
     max_residents: Optional[int] = None

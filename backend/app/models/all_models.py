@@ -131,6 +131,25 @@ class DocumentCategory(str, enum.Enum):
     FORM = "form"
     OTHER = "other"
 
+class SubscriptionPlan(str, enum.Enum):
+    FREE = "free"
+    BASIC = "basic"
+    PREMIUM = "premium"
+    ENTERPRISE = "enterprise"
+
+class Package(Base):
+    __tablename__ = "packages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    description = Column(String, nullable=True)
+    price = Column(Float, default=0.0)
+    max_admins = Column(Integer, default=1)
+    max_guards = Column(Integer, default=2)
+    max_residents = Column(Integer, default=20)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 class Tenant(Base):
     __tablename__ = "tenants"
 
@@ -142,6 +161,13 @@ class Tenant(Base):
     accent_color = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     
+    # Subscription
+    plan = Column(String, default="free")
+    package_id = Column(Integer, ForeignKey("packages.id"), nullable=True)
+    subscription_end_date = Column(DateTime(timezone=True), nullable=True)
+    
+    package = relationship("Package")
+
     # Package Limits (0 or null means unlimited, but typically set to a number)
     max_admins = Column(Integer, default=1)
     max_guards = Column(Integer, default=2)

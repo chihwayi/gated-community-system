@@ -27,14 +27,6 @@ class StorageClient:
             secure=self.secure
         )
 
-        # Client for generating public URLs (presigned)
-        self.signing_client = Minio(
-            self.public_endpoint,
-            access_key=self.access_key,
-            secret_key=self.secret_key,
-            secure=self.secure
-        )
-        
         self._ensure_bucket_exists()
 
     def _ensure_bucket_exists(self):
@@ -82,23 +74,44 @@ class StorageClient:
             raise e
 
     def get_file_url(self, object_name):
-        # Generate a presigned URL valid for 1 day
+        # Return a simple public URL for the file (Bucket is public)
+        # Avoids complexity of presigned URLs and potential CORS/signature issues
+        # object_name format: "uploads/filename.jpg" or "filename.jpg"
+        
+        # Ensure we don't duplicate bucket name
+        clean_object_name = object_name
+        if clean_object_name.startswith(f"{self.bucket_name}/"):
+             clean_object_name = clean_object_name.replace(f"{self.bucket_name}/", "")
+             
+        # Construct direct URL: http://localhost:9000/uploads/filename.jpg
+        base_url = f"http://{self.public_endpoint}"
+        if not base_url.startswith("http"):
+             base_url = f"http://{base_url}"
+             
+        return f"{base_url}/{self.bucket_name}/{clean_object_name}"
+        
+    # Legacy/Alternative method kept for reference but unused
+    def get_presigned_url(self, object_name):
         try:
              # object_name might be "uploads/filename.jpg" or just "filename.jpg"
              # check if bucket name is already in object_name
              if object_name.startswith(f"{self.bucket_name}/"):
                  object_name = object_name.replace(f"{self.bucket_name}/", "")
              
-             # Use signing_client to generate URL for browser access (localhost:9000)
-             url = self.signing_client.get_presigned_url(
+             # Use internal client to generate presigned URL (avoids connection refused)
+             url = self.client.get_presigned_url(
                  "GET",
                  self.bucket_name,
                  object_name,
              )
              
+             # Replace internal endpoint with public endpoint for browser access
+             if self.internal_endpoint in url and self.public_endpoint:
+                 url = url.replace(self.internal_endpoint, self.public_endpoint)
+             
              return url
         except S3Error as e:
-            logger.error(f"Error generating url: {e}")
-            return None
+             logger.error(f"Error generating url: {e}")
+             return None
 
 storage = StorageClient()
