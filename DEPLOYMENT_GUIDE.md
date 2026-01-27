@@ -37,11 +37,11 @@ Web portal configuration:
 - Next.js environment via `.env.local` (not committed)
 - API base URL pointing to backend (http://localhost:8000)
 
-## Seeding Data (Optional)
+## Seeding Data
 
-Use provided scripts:
-- Initial data: [initial_data.py](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/backend/initial_data.py)
-- Seed examples: [seed_data.py](file:///Users/devoop/Dev/personal/gated%20community/gated-community-system/backend/seed_data.py)
+The system automatically runs migrations and seeds initial data (default admin user) on startup via the `start.sh` script.
+
+To reset or re-seed manually:
 
 ```bash
 docker exec -it backend bash -lc "python initial_data.py"
