@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { 
   LayoutDashboard, 
   Users, 
@@ -24,25 +24,27 @@ import { useTenant } from "@/context/TenantContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const params = useParams();
+  const tenantSlug = params?.tenant as string;
   const { logout } = useAuth();
   const { tenant } = useTenant();
 
   const navItems = [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Residents", href: "/dashboard/residents", icon: Users },
-    { name: "Vehicles", href: "/dashboard/vehicles", icon: Car },
-    { name: "Parcels", href: "/dashboard/parcels", icon: Package },
-    { name: "Polls", href: "/dashboard/polls", icon: Vote },
-    { name: "Documents", href: "/dashboard/documents", icon: FileText },
-    { name: "Guards", href: "/dashboard/guards", icon: Users },
-    { name: "Security", href: "/dashboard/security", icon: Shield },
-    { name: "Reports", href: "/dashboard/reports", icon: FileBarChart },
-    { name: "Financials", href: "/dashboard/financial", icon: CreditCard },
-    { name: "Notices", href: "/dashboard/notices", icon: Bell },
-    { name: "Incidents", href: "/dashboard/incidents", icon: AlertTriangle },
-    { name: "Helpdesk", href: "/dashboard/tickets", icon: LifeBuoy },
-    { name: "Amenities", href: "/dashboard/amenities", icon: Dumbbell },
-    { name: "Profile", href: "/dashboard/profile", icon: User },
+    { name: "Overview", href: `/${tenantSlug}/dashboard`, icon: LayoutDashboard },
+    { name: "Residents", href: `/${tenantSlug}/dashboard/residents`, icon: Users },
+    { name: "Vehicles", href: `/${tenantSlug}/dashboard/vehicles`, icon: Car },
+    { name: "Parcels", href: `/${tenantSlug}/dashboard/parcels`, icon: Package },
+    { name: "Polls", href: `/${tenantSlug}/dashboard/polls`, icon: Vote },
+    { name: "Documents", href: `/${tenantSlug}/dashboard/documents`, icon: FileText },
+    { name: "Guards", href: `/${tenantSlug}/dashboard/guards`, icon: Users },
+    { name: "Security", href: `/${tenantSlug}/dashboard/security`, icon: Shield },
+    { name: "Reports", href: `/${tenantSlug}/dashboard/reports`, icon: FileBarChart },
+    { name: "Financials", href: `/${tenantSlug}/dashboard/financial`, icon: CreditCard },
+    { name: "Notices", href: `/${tenantSlug}/dashboard/notices`, icon: Bell },
+    { name: "Incidents", href: `/${tenantSlug}/dashboard/incidents`, icon: AlertTriangle },
+    { name: "Helpdesk", href: `/${tenantSlug}/dashboard/tickets`, icon: LifeBuoy },
+    { name: "Amenities", href: `/${tenantSlug}/dashboard/amenities`, icon: Dumbbell },
+    { name: "Profile", href: `/${tenantSlug}/dashboard/profile`, icon: User },
   ];
 
   return (

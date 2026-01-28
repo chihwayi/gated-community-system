@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=gated_community_db
+    # Ports removed for security - internal access only
+
+  backend:
+    build: ./backend
+    restart: always
+    volumes:
+      - ./backend:/app
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=gated_community_db
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT:-localhost:9000}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - MINIO_BUCKET_UPLOADS=${MINIO_BUCKET_UPLOADS:-uploads}
+    depends_on:
+      - db
+    # Ports removed - access via Nginx only
+
+  web-portal:
+    build: ./web-portal
+    restart: always
+    volumes:
+      - ./web-portal:/app
+      - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
+    depends_on:
+      - backend
+    # Ports removed - access via Nginx only
+
+  nginx:
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - backend
+      - web-portal
+
+  minio:
+    image: minio/minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+
+volumes:
+  postgres_data:
+  minio_data:

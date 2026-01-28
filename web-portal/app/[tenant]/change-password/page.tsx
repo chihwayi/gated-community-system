@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Lock, Loader2, KeyRound, CheckCircle } from "lucide-react";
 import { authService } from "@/services/authService";
+import { useParams, useRouter } from "next/navigation";
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -11,6 +12,9 @@ export default function ChangePasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const params = useParams();
+  const router = useRouter();
+  const tenantSlug = params?.tenant as string;
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +34,8 @@ export default function ChangePasswordPage() {
       // Redirect after a short delay to login page
       setTimeout(() => {
         authService.removeToken();
-        window.location.href = '/login';
+        // Force reload to clear any state and ensure clean login
+        window.location.href = tenantSlug ? `/${tenantSlug}/login` : '/';
       }, 1500);
 
     } catch (err: any) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 interface ProtectedRouteProps {
@@ -12,20 +12,23 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const tenantSlug = params?.tenant as string;
 
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-        router.push("/login");
+        if (tenantSlug) router.push(`/${tenantSlug}/login`);
+        else router.push("/");
       } else if (allowedRoles && !allowedRoles.includes(user.role)) {
         // Redirect to appropriate dashboard based on role or home
-        if (user.role === "admin") router.push("/dashboard");
-        else if (user.role === "resident") router.push("/resident");
-        else if (user.role === "guard") router.push("/security");
+        if (user.role === "admin") router.push(`/${tenantSlug}/dashboard`);
+        else if (user.role === "resident") router.push(`/${tenantSlug}/resident`);
+        else if (user.role === "guard") router.push(`/${tenantSlug}/security`);
         else router.push("/");
       }
     }
-  }, [user, isLoading, router, allowedRoles]);
+  }, [user, isLoading, router, allowedRoles, tenantSlug]);
 
   // Add timeout for loading state
   const [showTimeout, setShowTimeout] = useState(false);
@@ -57,7 +60,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
               <button 
                 onClick={() => {
                   localStorage.removeItem('token');
-                  window.location.href = '/login';
+                  window.location.href = tenantSlug ? `/${tenantSlug}/login` : '/';
                 }}
                 className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-sm transition-colors"
               >

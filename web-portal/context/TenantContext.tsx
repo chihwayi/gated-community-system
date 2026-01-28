@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Tenant, tenantService } from '@/services/tenantService';
+import { useParams, useSearchParams } from 'next/navigation';
 
 interface TenantContextType {
     tenant: Tenant | null;
@@ -11,35 +12,47 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
-export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const TenantProvider: React.FC<{ children: React.ReactNode; slug?: string }> = ({ children, slug: propSlug }) => {
     const [tenant, setTenant] = useState<Tenant | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const params = useParams();
+    const searchParams = useSearchParams();
 
     useEffect(() => {
         let isMounted = true;
         const fetchTenant = async () => {
             try {
-                // Determine slug from subdomain
-                let slug = 'default'; // Fallback for localhost
-                const hostname = window.location.hostname;
-                const isIP = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
-                
-                // If not localhost and not IP, try to get subdomain
-                if (hostname !== 'localhost' && !isIP) {
-                    const parts = hostname.split('.');
-                    // e.g. tenant.domain.com -> parts[0] is tenant
-                    // e.g. domain.com -> no subdomain
-                    if (parts.length > 2) {
-                        slug = parts[0];
+                let slug = propSlug;
+
+                if (!slug) {
+                    // 1. Try path param
+                    if (params?.tenant) {
+                        slug = params.tenant as string;
                     }
-                }
-                
-                // Allow override via query param ?tenant=slug
-                const urlParams = new URLSearchParams(window.location.search);
-                const querySlug = urlParams.get('tenant');
-                if (querySlug) {
-                    slug = querySlug;
+                    
+                    // 2. Try query param
+                    if (!slug) {
+                         const querySlug = searchParams.get('tenant');
+                         if (querySlug) slug = querySlug;
+                    }
+
+                    // 3. Try subdomain
+                    if (!slug) {
+                        const hostname = window.location.hostname;
+                        const isIP = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
+                        if (hostname !== 'localhost' && !isIP) {
+                            const parts = hostname.split('.');
+                            if (parts.length > 2) {
+                                slug = parts[0];
+                            }
+                        }
+                    }
+
+                    // 4. Default
+                    if (!slug) {
+                        slug = 'default';
+                    }
                 }
 
                 console.log(`Resolving tenant for slug: ${slug}`);
@@ -73,7 +86,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [propSlug, params?.tenant, searchParams]);
 
     return (
         <TenantContext.Provider value={{ tenant, isLoading, error }}>

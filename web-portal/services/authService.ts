@@ -126,6 +126,9 @@ export const authService = {
 
   logout() {
     this.removeToken();
-    window.location.href = '/login';
+    // Redirect logic should be handled by the application/context
+    if (typeof window !== 'undefined') {
+       window.dispatchEvent(new CustomEvent('auth:logout'));
+    }
   }
 };

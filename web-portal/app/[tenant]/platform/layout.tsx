@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import PlatformSidebar from '@/components/platform/PlatformSidebar';
 import { Loader2 } from 'lucide-react';
@@ -13,12 +13,14 @@ export default function PlatformLayout({
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const tenantSlug = params?.tenant as string;
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'super_admin')) {
-      router.replace('/login');
+      router.replace(tenantSlug ? `/${tenantSlug}/login` : '/');
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, tenantSlug]);
 
   if (isLoading) {
     return (

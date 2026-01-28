@@ -109,12 +109,18 @@ def check_in_out(
     if current_user.role not in [UserRole.GUARD, UserRole.ADMIN]:
         raise HTTPException(status_code=403, detail="Not authorized")
         
+    staff = crud_staff.staff.get(db=db, id=staff_id)
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+        
+    if current_user.tenant_id and staff.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
     attendance_in.staff_id = staff_id # Ensure staff_id matches path
     attendance = crud_staff.staff_attendance.create_attendance(db=db, attendance=attendance_in)
     
     # Notify employer
-    staff = crud_staff.staff.get(db=db, id=staff_id)
-    if staff and staff.employer_id:
+    if staff.employer_id:
         status_msg = "checked in" if attendance.check_in_time else "checked out"
         crud_notification.notification.create_notification(
             db=db,

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation';
 import { authService, User } from '@/services/authService';
 
 interface AuthContextType {
@@ -21,17 +21,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const tenantSlug = params?.tenant as string;
 
   const logout = useCallback(() => {
     authService.removeToken();
     setUser(null);
-    const tenant = searchParams.get('tenant');
+    const tenant = tenantSlug || searchParams.get('tenant');
     if (tenant) {
-      router.push(`/login?tenant=${tenant}`);
+      router.push(`/${tenant}/login`);
     } else {
-      router.push('/login');
+      router.push('/');
     }
-  }, [router, searchParams]);
+  }, [router, searchParams, tenantSlug]);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -66,10 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkAuth, logout]);
 
   useEffect(() => {
-    if (user && !user.is_password_changed && pathname !== '/change-password') {
-      router.replace('/change-password');
+    if (user && !user.is_password_changed && !pathname.includes('/change-password')) {
+        const tenant = tenantSlug || searchParams.get('tenant') || 'default';
+        router.replace(`/${tenant}/change-password`);
     }
-  }, [user, pathname, router]);
+  }, [user, pathname, router, tenantSlug, searchParams]);
 
   const login = useCallback(async (token: string, newUser?: User, shouldRedirect: boolean = true) => {
     authService.setToken(token);
@@ -88,17 +91,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Preserve tenant param if present
-    const tenant = searchParams.get('tenant');
-    const querySuffix = tenant ? `?tenant=${tenant}` : '';
+    // Resolve tenant
+    const targetTenant = tenantSlug || searchParams.get('tenant') || 'default';
     
     // Redirect based on role
-    if (userData.role === 'super_admin') router.replace('/platform' + querySuffix);
-    else if (userData.role === 'admin') router.replace('/dashboard' + querySuffix);
-    else if (userData.role === 'resident') router.replace('/resident' + querySuffix);
-    else if (userData.role === 'guard') router.replace('/security' + querySuffix);
-    else router.replace('/' + querySuffix);
-  }, [router, searchParams]);
+    if (userData.role === 'super_admin') router.replace(`/${targetTenant}/platform`);
+    else if (userData.role === 'admin') router.replace(`/${targetTenant}/dashboard`);
+    else if (userData.role === 'resident') router.replace(`/${targetTenant}/resident`);
+    else if (userData.role === 'guard') router.replace(`/${targetTenant}/security`);
+    else router.replace('/');
+  }, [router, searchParams, tenantSlug]);
 
   const updateUser = useCallback((data: Partial<User>) => {
     if (user) {

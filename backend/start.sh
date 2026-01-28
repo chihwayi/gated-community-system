@@ -3,12 +3,12 @@ set -e
 
 # Run migrations
 echo "Running migrations..."
-alembic upgrade head
+python3 -m alembic upgrade head
 
 # Create initial data
 echo "Creating initial data..."
-python initial_data.py
+python3 initial_data.py
 
 # Start application
 echo "Starting application..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

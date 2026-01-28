@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { 
   LayoutDashboard, 
   Building2, 
@@ -14,13 +14,15 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function PlatformSidebar() {
   const pathname = usePathname();
+  const params = useParams();
+  const tenantSlug = params?.tenant as string;
   const { logout } = useAuth();
 
   const navItems = [
-    { name: "Overview", href: "/platform", icon: LayoutDashboard },
-    { name: "Tenants", href: "/platform/tenants", icon: Building2 },
-    { name: "Packages", href: "/platform/packages", icon: Package },
-    { name: "Settings", href: "/platform/settings", icon: Settings },
+    { name: "Overview", href: `/${tenantSlug}/platform`, icon: LayoutDashboard },
+    { name: "Tenants", href: `/${tenantSlug}/platform/tenants`, icon: Building2 },
+    { name: "Packages", href: `/${tenantSlug}/platform/packages`, icon: Package },
+    { name: "Settings", href: `/${tenantSlug}/platform/settings`, icon: Settings },
   ];
 
   return (
