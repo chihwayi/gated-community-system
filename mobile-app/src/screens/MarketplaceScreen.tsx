@@ -24,7 +24,9 @@ const MOCK_LISTINGS = [
   { id: '3', title: 'Microwave', price: '$30', category: 'Electronics', seller: 'Mike Johnson', status: 'Sold', image: 'https://via.placeholder.com/150' },
 ];
 
-export default function MarketplaceScreen({ navigation }: any) {
+export default function MarketplaceScreen({ route, navigation }: any) {
+  const { mode } = route.params || {};
+  const isAdmin = mode === 'admin';
   const [searchQuery, setSearchQuery] = useState('');
   const [listings, setListings] = useState(MOCK_LISTINGS);
 
@@ -73,9 +75,11 @@ export default function MarketplaceScreen({ navigation }: any) {
             <ChevronLeft color={COLORS.textPrimary} size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Marketplace</Text>
+          {isAdmin && (
           <TouchableOpacity style={styles.addButton}>
             <ShoppingBag color={COLORS.textPrimary} size={24} />
           </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.searchContainer}>

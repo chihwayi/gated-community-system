@@ -25,6 +25,7 @@ import {
   MessageSquare,
   LogOut,
   FileText,
+  ShoppingBag,
 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { API_URL, ENDPOINTS } from '../config/api';
@@ -38,6 +39,7 @@ const QUICK_ACTIONS = [
   { id: '2', title: 'Payments', icon: CreditCard, color: '#f59e0b' }, // Amber
   { id: '3', title: 'Service', icon: Wrench, color: '#3b82f6' }, // Blue
   { id: '4', title: 'Community', icon: Users, color: '#8b5cf6' }, // Violet
+  { id: '5', title: 'Marketplace', icon: ShoppingBag, color: '#f43f5e' }, // Rose
 ];
 
 export default function ResidentDashboard({ route, navigation }: any) {
