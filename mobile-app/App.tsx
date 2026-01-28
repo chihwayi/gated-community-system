@@ -102,6 +102,7 @@ export default function App() {
             <Stack.Screen name="Amenities" component={AmenitiesScreen} />
             <Stack.Screen name="Documents" component={DocumentsScreen} />
             <Stack.Screen name="Staff" component={StaffScreen} />
+            <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
           </Stack.Navigator>
         </NavigationContainer>
         <Toast />
