@@ -27,13 +27,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     authService.removeToken();
     setUser(null);
+    if (pathname?.startsWith('/platform')) {
+        router.push('/platform/login');
+        return;
+    }
     const tenant = tenantSlug || searchParams.get('tenant');
     if (tenant) {
       router.push(`/${tenant}/login`);
     } else {
       router.push('/');
     }
-  }, [router, searchParams, tenantSlug]);
+  }, [router, searchParams, tenantSlug, pathname]);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -95,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const targetTenant = tenantSlug || searchParams.get('tenant') || 'default';
     
     // Redirect based on role
-    if (userData.role === 'super_admin') router.replace(`/${targetTenant}/platform`);
+    if (userData.role === 'super_admin') router.replace(`/platform`);
     else if (userData.role === 'admin') router.replace(`/${targetTenant}/dashboard`);
     else if (userData.role === 'resident') router.replace(`/${targetTenant}/resident`);
     else if (userData.role === 'guard') router.replace(`/${targetTenant}/security`);

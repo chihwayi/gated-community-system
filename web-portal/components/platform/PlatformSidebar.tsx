@@ -19,10 +19,10 @@ export default function PlatformSidebar() {
   const { logout } = useAuth();
 
   const navItems = [
-    { name: "Overview", href: `/${tenantSlug}/platform`, icon: LayoutDashboard },
-    { name: "Tenants", href: `/${tenantSlug}/platform/tenants`, icon: Building2 },
-    { name: "Packages", href: `/${tenantSlug}/platform/packages`, icon: Package },
-    { name: "Settings", href: `/${tenantSlug}/platform/settings`, icon: Settings },
+    { name: "Overview", href: `/platform`, icon: LayoutDashboard },
+    { name: "Tenants", href: `/platform/tenants`, icon: Building2 },
+    { name: "Packages", href: `/platform/packages`, icon: Package },
+    { name: "Settings", href: `/platform/settings`, icon: Settings },
   ];
 
   return (

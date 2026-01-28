@@ -155,8 +155,11 @@ export default function Home() {
           </>
         )}
 
-        <div className="pt-12 text-slate-500 text-sm border-t border-white/5 mt-12">
+        <div className="pt-12 text-slate-500 text-sm border-t border-white/5 mt-12 flex flex-col items-center gap-4">
           <p>© 2026 Gated Community System. All rights reserved.</p>
+          <Link href="/platform/login" className="hover:text-slate-300 transition-colors">
+            Super Admin Login
+          </Link>
         </div>
       </div>
     </div>
