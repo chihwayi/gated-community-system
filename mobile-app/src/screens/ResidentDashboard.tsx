@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,21 +28,34 @@ import {
   LogOut,
   FileText,
   ShoppingBag,
+  Package,
+  Dumbbell,
+  Briefcase,
+  LifeBuoy,
+  Car
 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
 import Toast from 'react-native-toast-message';
 import { registerForPushNotificationsAsync, updateUserPushToken, simulatePanicNotification } from '../utils/notifications';
+import { CustomAlert } from '../components/CustomAlert';
+import { getImageUrl } from '../utils/image';
 
 const { width } = Dimensions.get('window');
 
 const QUICK_ACTIONS = [
   { id: '1', title: 'Gate Access', icon: Key, color: '#10b981' }, // Emerald
   { id: '2', title: 'Payments', icon: CreditCard, color: '#f59e0b' }, // Amber
-  { id: '3', title: 'Service', icon: Wrench, color: '#3b82f6' }, // Blue
-  { id: '4', title: 'Community', icon: Users, color: '#8b5cf6' }, // Violet
+  { id: '3', title: 'Helpdesk', icon: LifeBuoy, color: '#3b82f6' }, // Blue
+  { id: '4', title: 'Community', icon: MessageSquare, color: '#8b5cf6' }, // Violet
   { id: '5', title: 'Marketplace', icon: ShoppingBag, color: '#f43f5e' }, // Rose
+  { id: '6', title: 'Parcels', icon: Package, color: '#ec4899' }, // Pink
+  { id: '7', title: 'Amenities', icon: Dumbbell, color: '#06b6d4' }, // Cyan
+  { id: '8', title: 'Documents', icon: FileText, color: '#64748b' }, // Slate
+  { id: '9', title: 'Staff', icon: Briefcase, color: '#f97316' }, // Orange
+  { id: '10', title: 'Vehicles', icon: Car, color: '#6366f1' }, // Indigo
+  { id: '11', title: 'My Family', icon: Users, color: '#14b8a6' }, // Teal
 ];
 
 export default function ResidentDashboard({ route, navigation }: any) {
@@ -50,54 +64,74 @@ export default function ResidentDashboard({ route, navigation }: any) {
   const [visitors, setVisitors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Custom Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info',
+    showCancel: false,
+    onConfirm: () => {},
+    confirmText: 'OK'
+  });
+
   // Pulse Animation for Panic Button
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', showCancel = false, onConfirm?: () => void, confirmText = 'OK') => {
+    setAlertConfig({
+      title,
+      message,
+      type,
+      showCancel,
+      onConfirm: onConfirm || (() => setAlertVisible(false)),
+      confirmText
+    });
+    setAlertVisible(true);
+  };
+
   const handlePanic = () => {
-    Alert.alert(
+    showAlert(
       'Confirm Emergency',
       'Are you sure you want to trigger the panic alarm?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'YES, HELP!', 
-          style: 'destructive',
-          onPress: async () => {
-             try {
-               const token = await Storage.getToken();
-               const response = await fetch(`${API_URL}${ENDPOINTS.SOS}`, {
-                 method: 'POST',
-                 headers: {
-                   'Authorization': `Bearer ${token}`,
-                   'Content-Type': 'application/json',
-                 },
-               });
+      'error',
+      true,
+      async () => {
+        setAlertVisible(false);
+        try {
+          const token = await Storage.getToken();
+          const response = await fetch(`${API_URL}${ENDPOINTS.SOS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-               if (!response.ok) {
-                 throw new Error('Failed to trigger SOS');
-               }
-
-               // Simulate Push Notification for local user (since Expo Go Android doesn't support remote push)
-               await simulatePanicNotification();
-
-               Toast.show({
-                  type: 'error',
-                  text1: 'EMERGENCY ALERT SENT',
-                  text2: 'Security and Response Team have been notified.',
-                  visibilityTime: 6000,
-               });
-             } catch (error) {
-               console.error('SOS Error:', error);
-               Toast.show({
-                 type: 'error',
-                 text1: 'Connection Error',
-                 text2: 'Could not trigger digital alarm. Call 911/Emergency services immediately!',
-                 visibilityTime: 10000,
-               });
-             }
+          if (!response.ok) {
+            throw new Error('Failed to trigger SOS');
           }
+
+          // Simulate Push Notification for local user (since Expo Go Android doesn't support remote push)
+          await simulatePanicNotification();
+
+          Toast.show({
+            type: 'error',
+            text1: 'EMERGENCY ALERT SENT',
+            text2: 'Security and Response Team have been notified.',
+            visibilityTime: 6000,
+          });
+        } catch (error) {
+          console.error('SOS Error:', error);
+          Toast.show({
+             type: 'error',
+             text1: 'Connection Error',
+             text2: 'Could not trigger digital alarm. Call 911/Emergency services immediately!',
+             visibilityTime: 10000,
+          });
         }
-      ]
+      },
+      'YES, HELP!'
     );
   };
 
@@ -166,7 +200,7 @@ export default function ResidentDashboard({ route, navigation }: any) {
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      Alert.alert('Error', 'Failed to load dashboard data');
+      showAlert('Connection Error', 'Failed to load dashboard data. Please pull to refresh.', 'error');
     } finally {
       setLoading(false);
     }
@@ -201,11 +235,19 @@ export default function ResidentDashboard({ route, navigation }: any) {
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.greeting}>Welcome Home</Text>
+              {tenant?.logo_url && (
+                <Image 
+                  source={{ uri: getImageUrl(tenant.logo_url) }} 
+                  style={{ width: 120, height: 40, resizeMode: 'contain', marginBottom: 8, marginLeft: -4 }} 
+                />
+              )}
+              <Text style={styles.greeting}>
+                Welcome Home, {user?.full_name ? user.full_name.split(' ')[0] : 'Resident'}!
+              </Text>
               <View style={styles.houseTag}>
                 <View style={styles.statusDot} />
                 <Text style={styles.houseText}>
-                  {user?.house_address ? `House #${user.house_address}` : 'Unit Not Assigned'}
+                  {user?.house_address ? `House #${user.house_address}` : 'Pending Unit Assignment'}
                 </Text>
               </View>
             </View>
@@ -215,7 +257,7 @@ export default function ResidentDashboard({ route, navigation }: any) {
                         <LogOut color="#fff" size={20} />
                     </Container>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.iconButton, { marginLeft: 8 }]}>
+                <TouchableOpacity style={[styles.iconButton, { marginLeft: 8 }]} onPress={() => navigation.navigate('Notifications')}>
                     <Container {...containerProps} style={[styles.blurBtn, Platform.OS === 'android' && styles.androidCard]}>
                         <Bell color="#fff" size={20} />
                         <View style={styles.notificationDot} />
@@ -279,10 +321,17 @@ export default function ResidentDashboard({ route, navigation }: any) {
                 key={action.id} 
                 style={styles.actionCard}
                 onPress={() => {
-                  if (action.id === '1') navigation.navigate('MyQRCode');
-                  if (action.id === '2') navigation.navigate('VisitorRegistration');
-                  if (action.id === '3') navigation.navigate('FinancialDashboard', { mode: 'resident' });
-                  if (action.id === '4') navigation.navigate('ServiceRequest');
+                  if (action.id === '1') navigation.navigate('VisitorRegistration'); // Updated to direct visitor registration
+                  if (action.id === '2') navigation.navigate('FinancialDashboard', { mode: 'resident' });
+                  if (action.id === '3') navigation.navigate('ServiceRequest');
+                  if (action.id === '4') navigation.navigate('Community');
+                  if (action.id === '5') navigation.navigate('Marketplace');
+                  if (action.id === '6') navigation.navigate('Parcels');
+                  if (action.id === '7') navigation.navigate('Amenities');
+                  if (action.id === '8') navigation.navigate('Documents');
+                  if (action.id === '9') navigation.navigate('Staff');
+                  if (action.id === '10') navigation.navigate('Vehicles');
+                  if (action.id === '11') navigation.navigate('Family');
                 }}
               >
                 <BlurView intensity={20} tint="dark" style={styles.actionBlur}>
@@ -340,6 +389,17 @@ export default function ResidentDashboard({ route, navigation }: any) {
 
         </ScrollView>
       </SafeAreaView>
+
+      <CustomAlert 
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertVisible(false)}
+        showCancel={alertConfig.showCancel}
+        onConfirm={alertConfig.onConfirm}
+        confirmText={alertConfig.confirmText}
+      />
     </View>
   );
 }

@@ -31,12 +31,38 @@ import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
 import Toast from 'react-native-toast-message';
 import { getImageUrl } from '../utils/image';
+import { CustomAlert } from '../components/CustomAlert';
 
 const { width } = Dimensions.get('window');
 
 export default function StaffScreen({ navigation }: any) {
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Custom Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info',
+    showCancel: false,
+    onConfirm: () => {},
+    confirmText: 'OK',
+    cancelText: 'Cancel'
+  });
+
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', showCancel = false, onConfirm?: () => void, confirmText = 'OK', cancelText = 'Cancel') => {
+    setAlertConfig({
+      title,
+      message,
+      type,
+      showCancel,
+      onConfirm: onConfirm || (() => setAlertVisible(false)),
+      confirmText,
+      cancelText
+    });
+    setAlertVisible(true);
+  };
 
   // Add Staff Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -80,7 +106,7 @@ export default function StaffScreen({ navigation }: any) {
 
   const handleAddStaff = async () => {
     if (!newStaff.full_name || !newStaff.phone_number) {
-        Alert.alert('Error', 'Please fill all required fields');
+        showAlert('Error', 'Please fill all required fields', 'error');
         return;
     }
 
@@ -115,7 +141,7 @@ export default function StaffScreen({ navigation }: any) {
         });
         fetchStaff();
     } catch (error: any) {
-        Alert.alert('Error', error.message);
+        showAlert('Error', error.message, 'error');
     } finally {
         setAdding(false);
     }
@@ -282,6 +308,17 @@ export default function StaffScreen({ navigation }: any) {
                 </View>
             </KeyboardAvoidingView>
         </Modal>
+        <CustomAlert 
+          visible={alertVisible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onClose={() => setAlertVisible(false)}
+          showCancel={alertConfig.showCancel}
+          onConfirm={alertConfig.onConfirm}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+        />
       </SafeAreaView>
     </View>
   );

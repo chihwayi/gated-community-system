@@ -38,9 +38,13 @@ export const ENDPOINTS = {
   PARCELS: '/parcels/',
   VISITORS: '/visitors/',
   AMENITIES: '/amenities/',
+  BOOKINGS: '/bookings/',
   DOCUMENTS: '/documents/',
   MARKETPLACE: '/marketplace/',
   TICKETS: '/tickets/',
   STATS: '/stats/',
   PACKAGES: '/packages/',
+  NOTIFICATIONS: '/notifications/',
+  FINANCIAL: '/financial/',
+  HOUSEHOLD: '/users/household',
 };

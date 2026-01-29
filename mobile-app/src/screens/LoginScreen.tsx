@@ -46,14 +46,20 @@ export default function LoginScreen({ route, navigation }: any) {
 
     setLoading(true);
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
       // Use standard OAuth2 password flow with x-www-form-urlencoded
       const response = await fetch(`${API_URL}${ENDPOINTS.LOGIN}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+        body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -129,18 +135,31 @@ export default function LoginScreen({ route, navigation }: any) {
       // Save token
       await Storage.saveToken(token);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       // Fetch user profile to get role
       const profileResponse = await fetch(`${API_URL}${ENDPOINTS.RESIDENT_PROFILE}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!profileResponse.ok) {
         throw new Error('Failed to fetch user profile');
       }
 
       const profileData = await profileResponse.json();
+
+      // Check if password change is required
+      if (profileData.is_password_changed === false) {
+        navigation.replace('ChangePassword', { tenant, role: profileData.role });
+        return;
+      }
+
       const role = profileData.role;
 
       // Navigate based on role
@@ -280,7 +299,7 @@ export default function LoginScreen({ route, navigation }: any) {
                 style={styles.loginButtonContainer}
               >
                 <LinearGradient
-                  colors={COLORS.gradientPrimary}
+                  colors={['#06b6d4', '#2563eb']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.loginButton}

@@ -13,6 +13,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   ScrollView,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -50,6 +51,8 @@ type DocumentItem = {
 export default function DocumentsScreen({ navigation }: any) {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ files: 0, folders: 0 });
+  const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   
   // Upload Modal State
@@ -59,10 +62,16 @@ export default function DocumentsScreen({ navigation }: any) {
   const [newDescription, setNewDescription] = useState('');
   const [newCategory, setNewCategory] = useState('general');
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdminStatus();
     fetchDocuments();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchDocuments().then(() => setRefreshing(false));
   }, []);
 
   const checkAdminStatus = async () => {
@@ -80,19 +89,50 @@ export default function DocumentsScreen({ navigation }: any) {
         throw new Error('Failed to load documents');
       }
       const data = await response.json();
-      const formatted: DocumentItem[] = data.map((d: any) => ({
-        id: d.id?.toString(),
-        name: d.title,
-        type: 'file',
-        date: new Date(d.created_at).toLocaleDateString(),
-        url: d.file_url,
+      
+      // Group by category
+      const grouped = data.reduce((acc: any, doc: any) => {
+        const cat = doc.category || 'other';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push({
+          id: doc.id?.toString(),
+          name: doc.title,
+          type: 'file',
+          date: new Date(doc.created_at).toLocaleDateString(),
+          url: doc.file_url,
+          category: cat,
+          size: '—'
+        });
+        return acc;
+      }, {});
+
+      const folderCount = Object.keys(grouped).length;
+      const fileCount = data.length;
+      setStats({ files: fileCount, folders: folderCount });
+
+      // Create folder items
+      const folders: DocumentItem[] = Object.keys(grouped).map(cat => ({
+        id: `folder-${cat}`,
+        name: cat.charAt(0).toUpperCase() + cat.slice(1),
+        type: 'folder',
+        date: '—',
+        items: `${grouped[cat].length} items`,
+        category: cat
       }));
-      setDocuments(formatted);
+
+      setDocuments([...folders, ...Object.values(grouped).flat() as any]);
     } catch (e) {
       console.error('Documents fetch error:', e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getVisibleDocuments = () => {
+    if (!currentFolder) {
+      return documents.filter(d => d.type === 'folder');
+    }
+    return documents.filter(d => d.type === 'file' && (d as any).category === currentFolder);
   };
 
   const handlePickDocument = async () => {
@@ -218,7 +258,23 @@ export default function DocumentsScreen({ navigation }: any) {
     const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
 
     return (
-    <TouchableOpacity style={styles.itemContainer}>
+    <TouchableOpacity 
+      style={styles.itemContainer}
+      onPress={() => {
+        if (item.type === 'folder') {
+          setCurrentFolder((item as any).category);
+        } else {
+          // Handle file download/view
+          if (item.url) {
+             Toast.show({
+               type: 'info',
+               text1: 'Opening Document',
+               text2: `Opening ${item.name}...`
+             });
+          }
+        }
+      }}
+    >
       <Container {...containerProps} style={[styles.itemBlur, Platform.OS === 'android' && styles.androidCard]}>
         <View style={styles.iconContainer}>
           {item.type === 'folder' ? (
@@ -251,10 +307,21 @@ export default function DocumentsScreen({ navigation }: any) {
       />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (currentFolder) {
+                setCurrentFolder(null);
+              } else {
+                navigation.goBack();
+              }
+            }} 
+            style={styles.backButton}
+          >
             <ChevronLeft color={COLORS.textPrimary} size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Documents</Text>
+          <Text style={styles.headerTitle}>
+            {currentFolder ? currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1) : 'Documents'}
+          </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {isAdmin && (
               <TouchableOpacity style={styles.searchButton} onPress={() => setModalVisible(true)}>
@@ -269,33 +336,34 @@ export default function DocumentsScreen({ navigation }: any) {
 
         <View style={styles.statsContainer}>
             <View style={styles.statCard}>
-                <Text style={styles.statValue}>{documents.length}</Text>
+                <Text style={styles.statValue}>{stats.files}</Text>
                 <Text style={styles.statLabel}>Total Files</Text>
             </View>
             <View style={styles.statCard}>
-                <Text style={styles.statValue}>—</Text>
+                <Text style={styles.statValue}>{stats.folders}</Text>
                 <Text style={styles.statLabel}>Folders</Text>
-            </View>
-            <View style={styles.statCard}>
-                <Text style={styles.statValue}>—</Text>
-                <Text style={styles.statLabel}>Used Space</Text>
             </View>
         </View>
 
         {loading ? (
-          <View style={{ padding: SPACING.l }}>
-            <Text style={{ color: COLORS.textSecondary }}>Loading documents...</Text>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         ) : (
           <FlatList
-            data={documents}
+            data={getVisibleDocuments()}
             renderItem={renderItem}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+            }
             ListEmptyComponent={
               <View style={{ padding: SPACING.l }}>
-                <Text style={{ color: COLORS.textSecondary }}>No documents found</Text>
+                <Text style={{ color: COLORS.textSecondary }}>
+                  {currentFolder ? 'No documents in this folder' : 'No documents found'}
+                </Text>
               </View>
             }
           />
@@ -335,6 +403,15 @@ export default function DocumentsScreen({ navigation }: any) {
                   onChangeText={setNewDescription}
                   multiline
                   numberOfLines={3}
+                />
+                <Text style={styles.inputLabel}>Category</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. general, legal, notices"
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={newCategory}
+                  onChangeText={setNewCategory}
+                  autoCapitalize="none"
                 />
                 <Text style={styles.inputLabel}>File</Text>
                 <TouchableOpacity

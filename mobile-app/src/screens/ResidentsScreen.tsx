@@ -21,12 +21,38 @@ import { BlurView } from 'expo-blur';
 import { Storage } from '../utils/storage';
 import { API_URL, ENDPOINTS } from '../config/api';
 import Toast from 'react-native-toast-message';
+import { CustomAlert } from '../components/CustomAlert';
 
 export default function ResidentsScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [residents, setResidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Custom Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info',
+    showCancel: false,
+    onConfirm: () => {},
+    confirmText: 'OK',
+    cancelText: 'Cancel'
+  });
+
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', showCancel = false, onConfirm?: () => void, confirmText = 'OK', cancelText = 'Cancel') => {
+    setAlertConfig({
+      title,
+      message,
+      type,
+      showCancel,
+      onConfirm: onConfirm || (() => setAlertVisible(false)),
+      confirmText,
+      cancelText
+    });
+    setAlertVisible(true);
+  };
+
   // Add Resident Modal State
   const [modalVisible, setModalVisible] = useState(false);
   const [newResident, setNewResident] = useState({
@@ -79,7 +105,7 @@ export default function ResidentsScreen({ navigation }: any) {
 
   const handleAddResident = async () => {
     if (!newResident.full_name || !newResident.email || !newResident.password) {
-        Alert.alert('Error', 'Please fill all required fields');
+        showAlert('Error', 'Please fill all required fields', 'error');
         return;
     }
 
@@ -119,7 +145,7 @@ export default function ResidentsScreen({ navigation }: any) {
         });
         fetchResidents();
     } catch (error: any) {
-        Alert.alert('Error', error.message);
+        showAlert('Error', error.message, 'error');
     } finally {
         setAdding(false);
     }
@@ -292,6 +318,17 @@ export default function ResidentsScreen({ navigation }: any) {
                 </View>
             </KeyboardAvoidingView>
         </Modal>
+        <CustomAlert 
+          visible={alertVisible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onClose={() => setAlertVisible(false)}
+          showCancel={alertConfig.showCancel}
+          onConfirm={alertConfig.onConfirm}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+        />
       </SafeAreaView>
     </View>
   );

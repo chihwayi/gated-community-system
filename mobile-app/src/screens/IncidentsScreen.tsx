@@ -7,7 +7,8 @@ import {
   FlatList,
   TextInput,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,11 +23,17 @@ export default function IncidentsScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isPrivileged, setIsPrivileged] = useState(false);
 
   useEffect(() => {
     checkRole();
     fetchIncidents();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchIncidents().then(() => setRefreshing(false));
   }, []);
 
   const checkRole = async () => {
@@ -153,6 +160,19 @@ export default function IncidentsScreen({ navigation }: any) {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+          }
+          ListEmptyComponent={
+            !loading ? (
+              <View style={{ padding: SPACING.xl, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.xl }}>
+                <AlertTriangle size={48} color={COLORS.textSecondary} />
+                <Text style={{ color: COLORS.textSecondary, marginTop: SPACING.md, fontSize: 16 }}>
+                  No incidents found
+                </Text>
+              </View>
+            ) : null
+          }
         />
       </SafeAreaView>
     </View>

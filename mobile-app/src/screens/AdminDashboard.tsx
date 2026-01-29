@@ -44,6 +44,7 @@ import {
 } from 'lucide-react-native';
 import { SPACING } from '../constants/theme';
 import { getImageUrl } from '../utils/image';
+import { CustomAlert } from '../components/CustomAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -76,6 +77,31 @@ export default function AdminDashboard({ navigation }: any) {
   const [tenant, setTenant] = useState<any>(null);
   const panicRef = useRef(false);
 
+  // Custom Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info',
+    showCancel: false,
+    onConfirm: () => {},
+    confirmText: 'OK',
+    cancelText: 'Cancel'
+  });
+
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', showCancel = false, onConfirm?: () => void, confirmText = 'OK', cancelText = 'Cancel') => {
+    setAlertConfig({
+      title,
+      message,
+      type,
+      showCancel,
+      onConfirm: onConfirm || (() => setAlertVisible(false)),
+      confirmText,
+      cancelText
+    });
+    setAlertVisible(true);
+  };
+
   useEffect(() => {
     loadTenant();
     setupNotifications();
@@ -107,21 +133,18 @@ export default function AdminDashboard({ navigation }: any) {
     
     setPanicActive(true);
 
-    Alert.alert(
+    showAlert(
       '🚨 PANIC ALERT 🚨',
       `SOS from ${incident.reporter_name}\nLocation: ${incident.location || 'Unknown'}\n\n${incident.description}`,
-      [
-        {
-          text: 'ACKNOWLEDGE',
-          onPress: () => {
-            Vibration.cancel();
-            setPanicActive(false);
-            navigation.navigate('Incidents');
-          },
-          style: 'destructive',
-        },
-      ],
-      { cancelable: false }
+      'error',
+      false,
+      () => {
+        Vibration.cancel();
+        setPanicActive(false);
+        setAlertVisible(false);
+        navigation.navigate('Incidents');
+      },
+      'ACKNOWLEDGE'
     );
   };
 
@@ -254,6 +277,21 @@ export default function AdminDashboard({ navigation }: any) {
           </View>
 
         </ScrollView>
+        <CustomAlert 
+          visible={alertVisible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onClose={() => {
+             // If panic alert, don't allow closing without acknowledgement
+             if (panicActive) return;
+             setAlertVisible(false);
+          }}
+          showCancel={alertConfig.showCancel}
+          onConfirm={alertConfig.onConfirm}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+        />
       </SafeAreaView>
     </View>
   );

@@ -9,12 +9,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   FlatList,
+  Image,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { ArrowLeft, Wrench, Send, Camera, Filter, ChevronRight, CheckCircle, Clock } from 'lucide-react-native';
+import { ArrowLeft, Wrench, Send, Camera, Filter, ChevronRight, CheckCircle, Clock, X } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
@@ -28,15 +31,20 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
   const [category, setCategory] = useState('plumbing');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('Open'); // For Admin: Open, Closed
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'Open' : 'New'); // Admin: Open/Closed, Resident: New/History
   const [requests, setRequests] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [image, setImage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchRequests();
-    }
-  }, [isAdmin, activeTab]);
+    // Fetch requests for both admin and resident (history)
+    fetchRequests();
+  }, [activeTab]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchRequests();
+  }, []);
 
   const fetchRequests = async () => {
     try {
@@ -62,6 +70,53 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
     }
   };
 
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
+
+  const uploadImage = async (uri: string): Promise<string | null> => {
+    try {
+      const token = await Storage.getToken();
+      const formData = new FormData();
+      
+      const filename = uri.split('/').pop() || 'upload.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('file', {
+        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
+        name: filename,
+        type: type,
+      } as any);
+
+      const response = await fetch(`${API_URL}/api/v1/upload/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.url;
+      }
+      return null;
+    } catch (error) {
+      console.error('Upload error:', error);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!description.trim()) {
       Toast.show({
@@ -75,6 +130,19 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
     setLoading(true);
     try {
       const token = await Storage.getToken();
+      let imageUrl = null;
+
+      if (image) {
+        imageUrl = await uploadImage(image);
+        if (!imageUrl) {
+            Toast.show({
+                type: 'error',
+                text1: 'Upload Failed',
+                text2: 'Failed to upload image, submitting without it.',
+            });
+        }
+      }
+
       const response = await fetch(`${API_URL}${ENDPOINTS.TICKETS}`, {
         method: 'POST',
         headers: {
@@ -86,7 +154,8 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
           description,
           category,
           priority: 'medium', // Default
-          status: 'open'
+          status: 'open',
+          image_url: imageUrl
         }),
       });
 
@@ -96,7 +165,15 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
           text1: 'Request Submitted',
           text2: 'Maintenance team has been notified.',
         });
-        navigation.goBack();
+        setDescription('');
+        setImage(null);
+        // Switch to History tab to see the new request
+        if (!isAdmin) {
+            fetchRequests(); // Refresh list
+            setActiveTab('History');
+        } else {
+            navigation.goBack();
+        }
       } else {
         throw new Error('Failed to submit ticket');
       }
@@ -119,7 +196,7 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
     { id: 'other', label: 'Other' },
   ];
 
-  const renderAdminItem = ({ item }: any) => {
+  const renderRequestItem = ({ item }: any) => {
     const Container = Platform.OS === 'ios' ? BlurView : View;
     const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
     
@@ -151,49 +228,124 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
     );
   };
 
-  if (isAdmin) {
-    return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={['#0f172a', '#1e293b']}
-          style={styles.background}
-        />
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <ArrowLeft color="#fff" size={24} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Service Requests</Text>
-            <TouchableOpacity style={styles.filterButton}>
-              <Filter color="#fff" size={24} />
-            </TouchableOpacity>
-          </View>
+  const renderContent = () => {
+    if (activeTab === 'New') {
+        return (
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <ScrollView contentContainerStyle={styles.content}>
+                <View style={styles.iconHeader}>
+                    <View style={styles.iconCircle}>
+                        <Wrench color="#3b82f6" size={40} />
+                    </View>
+                    <Text style={styles.subTitle}>What needs fixing?</Text>
+                </View>
 
-          <View style={styles.tabsContainer}>
-            {['Open', 'Closed'].map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.tab, activeTab === tab && styles.activeTab]}
-                onPress={() => setActiveTab(tab)}
-              >
-                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                <Text style={styles.label}>Category</Text>
+                <View style={styles.categoryContainer}>
+                    {categories.map((cat) => (
+                    <TouchableOpacity
+                        key={cat.id}
+                        style={[
+                        styles.categoryChip,
+                        category === cat.id && styles.categoryChipActive
+                        ]}
+                        onPress={() => setCategory(cat.id)}
+                    >
+                        <Text style={[
+                        styles.categoryText,
+                        category === cat.id && styles.categoryTextActive
+                        ]}>{cat.label}</Text>
+                    </TouchableOpacity>
+                    ))}
+                </View>
 
-          <FlatList
-            data={requests.filter(r => (activeTab === 'Open' ? r.status !== 'closed' : r.status === 'closed'))}
-            renderItem={renderAdminItem}
-            keyExtractor={item => item.id?.toString?.() || String(item.id)}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        </SafeAreaView>
-      </View>
-    );
-  }
+                <Text style={styles.label}>Description</Text>
+                <Container 
+                    {...(Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {})} 
+                    style={[styles.inputContainer, Platform.OS === 'android' && styles.androidCard]}
+                >
+                    <TextInput
+                    style={styles.input}
+                    placeholder="Describe the issue in detail..."
+                    placeholderTextColor="#94a3b8"
+                    multiline
+                    numberOfLines={6}
+                    value={description}
+                    onChangeText={setDescription}
+                    textAlignVertical="top"
+                    />
+                </Container>
+
+                {image ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: image }} style={styles.imagePreview} />
+                    <TouchableOpacity 
+                      style={styles.removeImageBtn}
+                      onPress={() => setImage(null)}
+                    >
+                      <X color="#fff" size={20} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.attachBtn} onPress={pickImage}>
+                    <Camera color="#94a3b8" size={20} />
+                    <Text style={styles.attachText}>Add Photo (Optional)</Text>
+                  </TouchableOpacity>
+                )}
+
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <TouchableOpacity 
+                        style={styles.submitBtn}
+                        onPress={handleSubmit}
+                        disabled={loading}
+                    >
+                        <LinearGradient
+                            colors={['#3b82f6', '#2563eb']}
+                            style={styles.submitGradient}
+                        >
+                            {loading ? (
+                                <Text style={styles.submitText}>Submitting...</Text>
+                            ) : (
+                                <>
+                                    <Text style={styles.submitText}>Submit Request</Text>
+                                    <Send color="#fff" size={20} style={{ marginLeft: 8 }} />
+                                </>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
+        );
+    } else {
+        // History or Admin List
+        const filteredRequests = isAdmin 
+            ? requests.filter(r => (activeTab === 'Open' ? r.status !== 'closed' : r.status === 'closed'))
+            : requests; // Residents see all their history
+
+        return (
+            <FlatList
+                data={filteredRequests}
+                renderItem={renderRequestItem}
+                keyExtractor={item => item.id?.toString?.() || String(item.id)}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+                }
+                ListEmptyComponent={
+                    <View style={{ alignItems: 'center', marginTop: 50 }}>
+                        <Text style={{ color: '#64748b' }}>No requests found</Text>
+                    </View>
+                }
+            />
+        );
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -201,93 +353,37 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
         colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
-      
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <ArrowLeft color="#fff" size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Service Request</Text>
-          <View style={{ width: 40 }} />
+          <Text style={styles.headerTitle}>{isAdmin ? 'Service Requests' : 'Service Request'}</Text>
+          {isAdmin ? (
+            <TouchableOpacity style={styles.filterButton}>
+              <Filter color="#fff" size={24} />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
         </View>
 
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
-        >
-            <ScrollView contentContainerStyle={styles.content}>
-            <View style={styles.iconHeader}>
-                <View style={styles.iconCircle}>
-                    <Wrench color="#3b82f6" size={40} />
-                </View>
-                <Text style={styles.subTitle}>What needs fixing?</Text>
-            </View>
-
-            <Text style={styles.label}>Category</Text>
-            <View style={styles.categoryContainer}>
-                {categories.map((cat) => (
-                <TouchableOpacity
-                    key={cat.id}
-                    style={[
-                    styles.categoryChip,
-                    category === cat.id && styles.categoryChipActive
-                    ]}
-                    onPress={() => setCategory(cat.id)}
-                >
-                    <Text style={[
-                    styles.categoryText,
-                    category === cat.id && styles.categoryTextActive
-                    ]}>{cat.label}</Text>
-                </TouchableOpacity>
-                ))}
-            </View>
-
-            <Text style={styles.label}>Description</Text>
-            <Container 
-                {...(Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {})} 
-                style={[styles.inputContainer, Platform.OS === 'android' && styles.androidCard]}
+        <View style={styles.tabsContainer}>
+          {(isAdmin ? ['Open', 'Closed'] : ['New', 'History']).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.activeTab]}
+              onPress={() => setActiveTab(tab)}
             >
-                <TextInput
-                style={styles.input}
-                placeholder="Describe the issue in detail..."
-                placeholderTextColor="#94a3b8"
-                multiline
-                numberOfLines={6}
-                value={description}
-                onChangeText={setDescription}
-                textAlignVertical="top"
-                />
-            </Container>
-
-            <TouchableOpacity style={styles.attachBtn}>
-                <Camera color="#94a3b8" size={20} />
-                <Text style={styles.attachText}>Add Photo (Optional)</Text>
+              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                {tab === 'New' ? 'New Request' : tab}
+              </Text>
             </TouchableOpacity>
+          ))}
+        </View>
 
-            </ScrollView>
+        {renderContent()}
 
-            <View style={styles.footer}>
-                <TouchableOpacity 
-                    style={styles.submitBtn}
-                    onPress={handleSubmit}
-                    disabled={loading}
-                >
-                    <LinearGradient
-                        colors={['#3b82f6', '#2563eb']}
-                        style={styles.submitGradient}
-                    >
-                        {loading ? (
-                            <Text style={styles.submitText}>Submitting...</Text>
-                        ) : (
-                            <>
-                                <Text style={styles.submitText}>Submit Request</Text>
-                                <Send color="#fff" size={20} style={{ marginLeft: 8 }} />
-                            </>
-                        )}
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -528,5 +624,33 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 41, 59, 0.8)',
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
+  },
+  imagePreviewContainer: {
+    marginBottom: 40,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    height: 200,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
 });

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, FlatList, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import QRCode from 'react-native-qrcode-svg';
-import { ChevronLeft, Share2, Copy } from 'lucide-react-native';
+import { ChevronLeft, Users } from 'lucide-react-native';
 import { COLORS, SPACING } from '../constants/theme';
 import { Storage } from '../utils/storage';
 import { API_URL, ENDPOINTS } from '../config/api';
@@ -13,31 +13,49 @@ const { width } = Dimensions.get('window');
 
 export default function MyQRCodeScreen({ navigation }: any) {
   const [user, setUser] = useState<any>(null);
+  const [household, setHousehold] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    fetchProfile();
+    fetchData();
   }, []);
 
-  const fetchProfile = async () => {
+  const fetchData = async () => {
     try {
       const token = await Storage.getToken();
       if (!token) return;
 
-      const res = await fetch(`${API_URL}${ENDPOINTS.RESIDENT_PROFILE}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Fetch Profile
+      const profileRes = await fetch(`${API_URL}${ENDPOINTS.RESIDENT_PROFILE}`, { headers });
+      let userData = null;
+      if (profileRes.ok) {
+        userData = await profileRes.json();
+        setUser(userData);
       }
+
+      // Fetch Household
+      const householdRes = await fetch(`${API_URL}${ENDPOINTS.HOUSEHOLD}`, { headers });
+      if (householdRes.ok) {
+        const householdData = await householdRes.json();
+        // Filter out self if returned
+        setHousehold(householdData.filter((m: any) => m.id !== userData?.id));
+      }
+
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchData().then(() => setRefreshing(false));
+  }, []);
 
   if (loading) {
     return (
@@ -47,12 +65,58 @@ export default function MyQRCodeScreen({ navigation }: any) {
     );
   }
 
-  // Fallback data if API fails or user is incomplete
-  const qrData = JSON.stringify({
-    id: user?.id || 'unknown',
-    type: 'resident',
-    timestamp: Date.now()
-  });
+  const allPasses = user ? [user, ...household] : [];
+
+  const handleScroll = (event: any) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width;
+    const index = event.nativeEvent.contentOffset.x / slideSize;
+    setCurrentIndex(Math.round(index));
+  };
+
+  const renderCard = ({ item }: any) => {
+    const qrData = JSON.stringify({
+      id: item?.id || 'unknown',
+      type: 'resident',
+      timestamp: Date.now()
+    });
+
+    return (
+      <View style={{ width: width - SPACING.l * 2, alignItems: 'center' }}>
+        <View style={styles.cardContainer}>
+            <LinearGradient
+                colors={item.id === user?.id ? ['#4f46e5', '#7c3aed'] : ['#059669', '#10b981']}
+                style={styles.cardGradient}
+            >
+                <View style={styles.cardHeader}>
+                    <View>
+                        <Text style={styles.cardLabel}>RESIDENT PASS</Text>
+                        <Text style={styles.cardName}>{item?.full_name || 'Resident'}</Text>
+                        {item?.id !== user?.id && (
+                          <Text style={styles.relationText}>Family Member</Text>
+                        )}
+                    </View>
+                    <View style={styles.houseBadge}>
+                        <Text style={styles.houseText}>#{item?.house_address || user?.house_address || '00'}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.qrContainer}>
+                    <View style={styles.qrWrapper}>
+                        <QRCode
+                            value={qrData}
+                            size={180}
+                            color="black"
+                            backgroundColor="white"
+                        />
+                    </View>
+                </View>
+
+                <Text style={styles.expiryText}>Auto-renews daily • Valid for Entry</Text>
+            </LinearGradient>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -70,52 +134,56 @@ export default function MyQRCodeScreen({ navigation }: any) {
             <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.content}>
-            <View style={styles.cardContainer}>
-                <LinearGradient
-                    colors={['#4f46e5', '#7c3aed']}
-                    style={styles.cardGradient}
-                >
-                    <View style={styles.cardHeader}>
-                        <View>
-                            <Text style={styles.cardLabel}>RESIDENT PASS</Text>
-                            <Text style={styles.cardName}>{user?.full_name || 'Resident'}</Text>
-                        </View>
-                        <View style={styles.houseBadge}>
-                            <Text style={styles.houseText}>#{user?.house_address || '00'}</Text>
-                        </View>
-                    </View>
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+        >
+            <FlatList
+              data={allPasses}
+              renderItem={renderCard}
+              keyExtractor={(item) => item.id.toString()}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={{ alignItems: 'center' }}
+              style={{ flexGrow: 0, marginBottom: 20 }}
+            />
 
-                    <View style={styles.qrContainer}>
-                        <View style={styles.qrWrapper}>
-                            <QRCode
-                                value={qrData}
-                                size={200}
-                                color="black"
-                                backgroundColor="white"
-                            />
-                        </View>
-                    </View>
-
-                    <Text style={styles.expiryText}>Auto-renews daily • Valid for Entry</Text>
-                </LinearGradient>
-            </View>
+            {/* Pagination Dots */}
+            {allPasses.length > 1 && (
+              <View style={styles.pagination}>
+                {allPasses.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      currentIndex === index && styles.paginationDotActive
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
 
             <View style={styles.actions}>
-                <TouchableOpacity style={styles.actionBtn}>
-                    <Share2 color="#fff" size={20} />
-                    <Text style={styles.actionText}>Share Pass</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.actionBtn, styles.copyBtn]}>
-                    <Copy color="#fff" size={20} />
-                    <Text style={styles.actionText}>Copy Link</Text>
+                <TouchableOpacity 
+                    style={[styles.actionBtn, { width: '100%', justifyContent: 'center' }]}
+                    onPress={() => navigation.navigate('VisitorRegistration')}
+                >
+                    <Users color="#fff" size={20} />
+                    <Text style={styles.actionText}>Create Guest Pass</Text>
                 </TouchableOpacity>
             </View>
+
+            <Text style={[styles.note, { color: '#f59e0b', marginBottom: 8, fontWeight: 'bold' }]}>
+                Private Access Code. Do not share.
+            </Text>
 
             <Text style={styles.note}>
                 Show this QR code at the gate scanner for automated entry.
             </Text>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -251,5 +319,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
     maxWidth: 260,
+  },
+  relationText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    gap: 8,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  paginationDotActive: {
+    backgroundColor: '#fff',
+    width: 24,
   },
 });

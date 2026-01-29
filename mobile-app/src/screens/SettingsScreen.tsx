@@ -19,14 +19,42 @@ import {
   Bell, 
   Shield, 
   Moon,
-  ChevronRight
+  ChevronRight,
+  Users,
+  Car
 } from 'lucide-react-native';
 import { Storage } from '../utils/storage';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import Toast from 'react-native-toast-message';
+import { CustomAlert } from '../components/CustomAlert';
 
 export default function SettingsScreen({ navigation }: any) {
   const [user, setUser] = useState<any>(null);
+  
+  // Custom Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info',
+    showCancel: false,
+    onConfirm: () => {},
+    confirmText: 'OK',
+    cancelText: 'Cancel'
+  });
+
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', showCancel = false, onConfirm?: () => void, confirmText = 'OK', cancelText = 'Cancel') => {
+    setAlertConfig({
+      title,
+      message,
+      type,
+      showCancel,
+      onConfirm: onConfirm || (() => setAlertVisible(false)),
+      confirmText,
+      cancelText
+    });
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     loadUser();
@@ -38,28 +66,26 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
+    showAlert(
       'Logout',
       'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await Storage.clearAll();
-            Toast.show({
-              type: 'success',
-              text1: 'Logged Out',
-              text2: 'See you soon!',
-            });
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
-          },
-        },
-      ]
+      'warning',
+      true,
+      async () => {
+        setAlertVisible(false);
+        await Storage.clearAll();
+        Toast.show({
+          type: 'success',
+          text1: 'Logged Out',
+          text2: 'See you soon!',
+        });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      },
+      'Logout',
+      'Cancel'
     );
   };
 
@@ -116,22 +142,12 @@ export default function SettingsScreen({ navigation }: any) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Security</Text>
-            <View style={styles.sectionContent}>
-              {renderSettingItem(<Shield size={20} color="#10b981" />, "Password & Security", () => {})}
-            </View>
-          </View>
-
-          <View style={styles.section}>
             <Text style={styles.sectionHeader}>Account</Text>
             <View style={styles.sectionContent}>
-              {renderSettingItem(<User size={20} color="#3b82f6" />, "Edit Profile", () => {
-                 Toast.show({
-                   type: 'info',
-                   text1: 'Coming Soon',
-                   text2: 'Profile editing will be available shortly.',
-                 });
-              })}
+              {renderSettingItem(<User size={20} color="#3b82f6" />, "Edit Profile", () => navigation.navigate('EditProfile'))}
+              {renderSettingItem(<Users size={20} color="#8b5cf6" />, "Household Members", () => navigation.navigate('Family'))}
+              {renderSettingItem(<Car size={20} color="#f59e0b" />, "My Vehicles", () => navigation.navigate('Vehicles'))}
+              {renderSettingItem(<Shield size={20} color="#10b981" />, "Change Password", () => navigation.navigate('ChangePassword'))}
               <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                 <LogOut size={20} color="#ef4444" />
                 <Text style={styles.logoutText}>Logout</Text>
@@ -139,6 +155,17 @@ export default function SettingsScreen({ navigation }: any) {
             </View>
           </View>
         </ScrollView>
+        <CustomAlert 
+          visible={alertVisible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onClose={() => setAlertVisible(false)}
+          showCancel={alertConfig.showCancel}
+          onConfirm={alertConfig.onConfirm}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+        />
       </SafeAreaView>
     </View>
   );

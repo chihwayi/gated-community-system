@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,29 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
+import { 
+  ArrowLeft, 
+  Filter, 
+  ArrowUp, 
+  CheckCircle, 
+  Clock, 
+  CreditCard,
+  FileText,
+  Banknote,
+  AlertCircle,
+  ChevronRight,
+  Wallet
+} from 'lucide-react-native';
 import { LineChart } from "react-native-chart-kit";
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
@@ -20,10 +37,108 @@ const FinancialDashboardScreen = ({ navigation, route }: any) => {
   const { mode } = route.params || { mode: 'admin' };
   const isResident = mode === 'resident';
   const [selectedPeriod, setSelectedPeriod] = useState('Month');
+  
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [bills, setBills] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [summary, setSummary] = useState({
+    balanceDue: 0,
+    lastPaymentAmount: 0,
+    lastPaymentDate: null as string | null,
+    totalIncome: 0,
+    pendingCollections: 0,
+  });
 
   const Container = Platform.OS === 'ios' ? BlurView : View;
   const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
   const backButtonProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'light' as const } : {};
+
+  const fetchData = useCallback(async () => {
+    try {
+      const token = await Storage.getToken();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Fetch Bills
+      const billsRes = await fetch(`${API_URL}${ENDPOINTS.FINANCIAL}bills`, { headers });
+      const billsData = billsRes.ok ? await billsRes.json() : [];
+
+      // Fetch Payments
+      const paymentsRes = await fetch(`${API_URL}${ENDPOINTS.FINANCIAL}payments`, { headers });
+      const paymentsData = paymentsRes.ok ? await paymentsRes.json() : [];
+
+      setBills(billsData);
+      setPayments(paymentsData);
+
+      // Calculate Summary
+      let balanceDue = 0;
+      let pendingCollections = 0;
+      let totalIncome = 0;
+
+      // Filter bills based on period if needed, but for balance we need all unpaid
+      billsData.forEach((bill: any) => {
+        if (bill.status === 'unpaid' || bill.status === 'partial') {
+           balanceDue += bill.amount;
+           pendingCollections += bill.amount;
+        }
+      });
+
+      paymentsData.forEach((payment: any) => {
+          if (payment.status === 'completed' || payment.status === 'verified') {
+              totalIncome += payment.amount;
+          }
+      });
+
+      // Last Payment
+      const sortedPayments = [...paymentsData].sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const lastPayment = sortedPayments[0];
+
+      setSummary({
+        balanceDue: balanceDue / 100, // cents to dollars
+        pendingCollections: pendingCollections / 100,
+        totalIncome: totalIncome / 100,
+        lastPaymentAmount: lastPayment ? lastPayment.amount / 100 : 0,
+        lastPaymentDate: lastPayment ? lastPayment.created_at : null,
+      });
+
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load financial data',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData();
+  };
+
+  if (loading) {
+      return (
+        <View style={styles.mainContainer}>
+            <ActivityIndicator size="large" color="#3b82f6" style={{ marginTop: 50 }} />
+        </View>
+      );
+  }
+
+  // Prepare Chart Data (Mocking for now based on available payments, or just static if no data)
+  // Ideally we group payments by month
+  const chartData = {
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+    datasets: [{ data: [20, 45, 28, 80, 99, 43] }]
+  };
 
   return (
     <View style={styles.mainContainer}>
@@ -42,12 +157,12 @@ const FinancialDashboardScreen = ({ navigation, route }: any) => {
               {...backButtonProps}
               style={styles.blurButton}
             >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <ArrowLeft size={24} color="#fff" />
             </Container>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{isResident ? 'My Finances' : 'Financial Dashboard'}</Text>
           <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="filter" size={24} color="#fff" />
+            <Filter size={24} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -75,19 +190,24 @@ const FinancialDashboardScreen = ({ navigation, route }: any) => {
           </ScrollView>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+        >
           {/* Summary Cards */}
           <View style={styles.summaryContainer}>
             <Container {...containerProps} style={[styles.summaryCard, Platform.OS === 'android' && styles.androidCard]}>
               <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                <Ionicons name="arrow-up" size={24} color="#10b981" />
+                <ArrowUp size={24} color="#10b981" />
               </View>
               <Text style={styles.summaryLabel}>{isResident ? 'Balance Due' : 'Total Income'}</Text>
-              <Text style={styles.summaryValue}>{isResident ? '$150.00' : '$24,500'}</Text>
-              <Text style={styles.summaryTrend}>{isResident ? 'Due by 30th' : '+12% vs last month'}</Text>
+              <Text style={styles.summaryValue}>
+                  ${isResident ? summary.balanceDue.toFixed(2) : summary.totalIncome.toFixed(2)}
+              </Text>
+              <Text style={styles.summaryTrend}>{isResident ? 'Due Now' : 'Total Collected'}</Text>
               
-              {isResident && (
-                <TouchableOpacity style={styles.payBtn}>
+              {isResident && summary.balanceDue > 0 && (
+                <TouchableOpacity style={styles.payBtn} onPress={() => Toast.show({ type: 'info', text1: 'Coming Soon', text2: 'Online payments coming soon' })}>
                     <Text style={styles.payBtnText}>PAY NOW</Text>
                 </TouchableOpacity>
               )}
@@ -95,11 +215,21 @@ const FinancialDashboardScreen = ({ navigation, route }: any) => {
 
             <Container {...containerProps} style={[styles.summaryCard, Platform.OS === 'android' && styles.androidCard]}>
               <View style={[styles.iconContainer, { backgroundColor: isResident ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)' }]}>
-                <Ionicons name={isResident ? "checkmark-circle" : "arrow-down"} size={24} color={isResident ? "#10b981" : "#ef4444"} />
+                {isResident ? (
+                  <CheckCircle size={24} color="#10b981" />
+                ) : (
+                  <Clock size={24} color="#ef4444" />
+                )}
               </View>
-              <Text style={styles.summaryLabel}>{isResident ? 'Last Payment' : 'Expenses'}</Text>
-              <Text style={styles.summaryValue}>{isResident ? '$150.00' : '$8,200'}</Text>
-              <Text style={styles.summaryTrend}>{isResident ? 'Success' : '-5% vs last month'}</Text>
+              <Text style={styles.summaryLabel}>{isResident ? 'Last Payment' : 'Pending'}</Text>
+              <Text style={styles.summaryValue}>
+                  ${isResident ? summary.lastPaymentAmount.toFixed(2) : summary.pendingCollections.toFixed(2)}
+              </Text>
+              <Text style={styles.summaryTrend}>
+                  {isResident 
+                    ? (summary.lastPaymentDate ? new Date(summary.lastPaymentDate).toLocaleDateString() : 'No payments') 
+                    : 'Unpaid Bills'}
+              </Text>
             </Container>
           </View>
 
@@ -107,25 +237,11 @@ const FinancialDashboardScreen = ({ navigation, route }: any) => {
           <View style={styles.chartContainer}>
             <Text style={styles.sectionTitle}>{isResident ? 'Payment History' : 'Revenue Overview'}</Text>
             <LineChart
-              data={{
-                labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-                datasets: [
-                  {
-                    data: [
-                      Math.random() * 100,
-                      Math.random() * 100,
-                      Math.random() * 100,
-                      Math.random() * 100,
-                      Math.random() * 100,
-                      Math.random() * 100
-                    ]
-                  }
-                ]
-              }}
+              data={chartData}
               width={width - 48} // from react-native
               height={220}
               yAxisLabel="$"
-              yAxisSuffix="k"
+              yAxisSuffix=""
               yAxisInterval={1} // optional, defaults to 1
               chartConfig={{
                 backgroundColor: "transparent",
@@ -160,33 +276,38 @@ const FinancialDashboardScreen = ({ navigation, route }: any) => {
               </TouchableOpacity>
             </View>
 
-            {[1, 2, 3, 4, 5].map((item) => (
-              <Container 
-                key={item}
-                {...containerProps}
-                style={[styles.transactionItem, Platform.OS === 'android' && styles.androidCard]}
-              >
-                <View style={styles.transactionIcon}>
-                  <Ionicons 
-                    name={item % 2 === 0 ? "water" : "flash"} 
-                    size={24} 
-                    color="#fff" 
-                  />
-                </View>
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionTitle}>
-                    {item % 2 === 0 ? "Water Bill Payment" : "Electricity Bill"}
-                  </Text>
-                  <Text style={styles.transactionDate}>Today, 10:23 AM</Text>
-                </View>
-                <Text style={[
-                  styles.transactionAmount,
-                  { color: item % 2 === 0 ? '#10b981' : '#ef4444' }
-                ]}>
-                  {item % 2 === 0 ? "+" : "-"}$45.00
-                </Text>
-              </Container>
-            ))}
+            {payments.length === 0 ? (
+                <Text style={{ color: '#94a3b8', textAlign: 'center', padding: 20 }}>No recent transactions</Text>
+            ) : (
+                payments.slice(0, 5).map((item) => (
+                <Container 
+                    key={item.id}
+                    {...containerProps}
+                    style={[styles.transactionItem, Platform.OS === 'android' && styles.androidCard]}
+                >
+                    <View style={styles.transactionIcon}>
+                    <CreditCard 
+                        size={24} 
+                        color="#fff" 
+                    />
+                    </View>
+                    <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionTitle}>
+                        {item.method || 'Payment'}
+                    </Text>
+                    <Text style={styles.transactionDate}>
+                        {new Date(item.created_at).toLocaleDateString()}
+                    </Text>
+                    </View>
+                    <Text style={[
+                    styles.transactionAmount,
+                    { color: '#10b981' }
+                    ]}>
+                    +${(item.amount / 100).toFixed(2)}
+                    </Text>
+                </Container>
+                ))
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>

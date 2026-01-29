@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +32,7 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
 import Toast from 'react-native-toast-message';
+import { CustomAlert } from '../components/CustomAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -85,6 +87,31 @@ export default function CommunityScreen({ navigation, route }: any) {
   const [newOptions, setNewOptions] = useState(['', '']);
   const [duration, setDuration] = useState(0);
   const [creating, setCreating] = useState(false);
+
+  // Custom Alert State
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'warning' | 'info',
+    showCancel: false,
+    onConfirm: () => {},
+    confirmText: 'OK',
+    cancelText: 'Cancel'
+  });
+
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', showCancel = false, onConfirm?: () => void, confirmText = 'OK', cancelText = 'Cancel') => {
+    setAlertConfig({
+      title,
+      message,
+      type,
+      showCancel,
+      onConfirm: onConfirm || (() => setAlertVisible(false)),
+      confirmText,
+      cancelText
+    });
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     fetchPolls();
@@ -190,39 +217,51 @@ export default function CommunityScreen({ navigation, route }: any) {
   };
 
   const handleClosePoll = async (pollId: number) => {
-    Alert.alert('Close Poll', 'Are you sure you want to close this poll? Voting will stop.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Close', style: 'destructive', onPress: async () => {
-            try {
-                const token = await Storage.getToken();
-                const response = await fetch(`${API_URL}${ENDPOINTS.POLLS}${pollId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ status: 'closed' })
-                });
-                if (response.ok) fetchPolls();
-            } catch (e) { console.error(e); }
-        }}
-    ]);
+    showAlert(
+      'Close Poll',
+      'Are you sure you want to close this poll? Voting will stop.',
+      'warning',
+      true,
+      async () => {
+        setAlertVisible(false);
+        try {
+          const token = await Storage.getToken();
+          const response = await fetch(`${API_URL}${ENDPOINTS.POLLS}${pollId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: 'closed' })
+          });
+          if (response.ok) fetchPolls();
+        } catch (e) { console.error(e); }
+      },
+      'Close',
+      'Cancel'
+    );
   };
 
   const handleDeletePoll = async (pollId: number) => {
-    Alert.alert('Delete Poll', 'This cannot be undone.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: async () => {
-            try {
-                const token = await Storage.getToken();
-                const response = await fetch(`${API_URL}${ENDPOINTS.POLLS}${pollId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (response.ok) fetchPolls();
-            } catch (e) { console.error(e); }
-        }}
-    ]);
+    showAlert(
+      'Delete Poll',
+      'This cannot be undone.',
+      'error',
+      true,
+      async () => {
+        setAlertVisible(false);
+        try {
+          const token = await Storage.getToken();
+          const response = await fetch(`${API_URL}${ENDPOINTS.POLLS}${pollId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) fetchPolls();
+        } catch (e) { console.error(e); }
+      },
+      'Delete',
+      'Cancel'
+    );
   };
 
   const fetchNotices = async () => {
@@ -246,6 +285,11 @@ export default function CommunityScreen({ navigation, route }: any) {
     } catch (e) {
       console.error('Error fetching notices:', e);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    Promise.all([fetchPolls(), fetchNotices()]).finally(() => setRefreshing(false));
   };
 
   const addOptionField = () => {
@@ -374,7 +418,12 @@ export default function CommunityScreen({ navigation, route }: any) {
           )}
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          }
+        >
           {/* Active Polls First - Priority */}
           <Text style={styles.sectionTitle}>Polls</Text>
           {loading ? (
@@ -496,6 +545,17 @@ export default function CommunityScreen({ navigation, route }: any) {
             </View>
         </View>
       </Modal>
+      <CustomAlert 
+        visible={alertVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertVisible(false)}
+        showCancel={alertConfig.showCancel}
+        onConfirm={alertConfig.onConfirm}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+      />
     </View>
   );
 }

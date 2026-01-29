@@ -22,9 +22,9 @@ export const COLORS = {
   border: 'rgba(255,255,255,0.1)',
 
   // Gradients
-  gradientPrimary: ['#06b6d4', '#2563eb'],
-  gradientDark: ['#0f172a', '#1e293b'],
-  gradientGlass: ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'],
+  gradientPrimary: ['#06b6d4', '#2563eb'] as const,
+  gradientDark: ['#0f172a', '#1e293b'] as const,
+  gradientGlass: ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] as const,
 };
 
 export const SPACING = {

@@ -141,6 +141,18 @@ export default function ResidentsPage() {
     }
   };
 
+  const handleAddFamily = (resident: User) => {
+    setFormData({
+      email: "",
+      password: "",
+      full_name: "",
+      phone_number: "",
+      house_address: resident.house_address || "",
+      role: "resident"
+    });
+    setShowAddModal(true);
+  };
+
   const filteredResidents = residents.filter(resident =>  
     resident.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     resident.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -258,6 +270,13 @@ export default function ResidentsPage() {
                       {new Date(resident.created_at).toLocaleDateString()}
                     </td>
                     <td className="p-6 flex items-center gap-2">
+                      <button 
+                        onClick={() => handleAddFamily(resident)}
+                        className="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors"
+                        title="Add Family Member to Household"
+                      >
+                        <UserPlus className="w-5 h-5" />
+                      </button>
                       <button 
                         onClick={() => openEditModal(resident)}
                         className="p-2 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors"

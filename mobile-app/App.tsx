@@ -29,6 +29,11 @@ import DocumentsScreen from './src/screens/DocumentsScreen';
 import StaffScreen from './src/screens/StaffScreen';
 import MarketplaceScreen from './src/screens/MarketplaceScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import FamilyScreen from './src/screens/FamilyScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
+
 import { Storage } from './src/utils/storage';
 import { COLORS } from './src/constants/theme';
 import Toast from 'react-native-toast-message';
@@ -105,6 +110,10 @@ export default function App() {
             <Stack.Screen name="Staff" component={StaffScreen} />
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="Family" component={FamilyScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           </Stack.Navigator>
         </NavigationContainer>
         <Toast />

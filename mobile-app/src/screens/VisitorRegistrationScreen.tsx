@@ -28,7 +28,8 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
   const [visitorData, setVisitorData] = useState({
     name: '',
     phone: '',
-    email: '',
+    vehicle_number: '',
+    type: 'VISITOR',
     purpose: 'Social',
     date: new Date().toISOString().split('T')[0],
   });
@@ -52,6 +53,8 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
           const payload = {
             full_name: visitorData.name,
             phone_number: visitorData.phone,
+            vehicle_number: visitorData.vehicle_number || null,
+            visitor_type: visitorData.type,
             purpose: visitorData.purpose,
             expected_arrival: new Date(visitorData.date).toISOString(),
           };
@@ -151,16 +154,32 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>EMAIL (OPTIONAL)</Text>
+        <Text style={styles.inputLabel}>VEHICLE NUMBER (OPTIONAL)</Text>
         <TextInput
             style={styles.input}
-            placeholder="visitor@example.com"
+            placeholder="Enter vehicle number"
             placeholderTextColor="#9ca3af"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={visitorData.email}
-            onChangeText={(text) => setVisitorData({...visitorData, email: text})}
+            autoCapitalize="characters"
+            value={visitorData.vehicle_number}
+            onChangeText={(text) => setVisitorData({...visitorData, vehicle_number: text})}
         />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>VISITOR TYPE</Text>
+        <View style={styles.typeSelector}>
+            {['VISITOR', 'MAID', 'CONTRACTOR', 'DELIVERY'].map((type) => (
+                <TouchableOpacity
+                    key={type}
+                    style={[styles.typeButton, visitorData.type === type && styles.typeButtonActive]}
+                    onPress={() => setVisitorData({...visitorData, type})}
+                >
+                    <Text style={[styles.typeButtonText, visitorData.type === type && styles.typeButtonTextActive]}>
+                        {type}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </View>
       </View>
     </View>
   );
@@ -177,9 +196,15 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
                 <Text style={styles.reviewLabel}>PHONE NUMBER</Text>
                 <Text style={styles.reviewValue}>{visitorData.phone}</Text>
             </View>
+            {visitorData.vehicle_number ? (
             <View style={styles.reviewRow}>
-                <Text style={styles.reviewLabel}>EMAIL</Text>
-                <Text style={styles.reviewValue}>{visitorData.email || 'Not provided'}</Text>
+                <Text style={styles.reviewLabel}>VEHICLE</Text>
+                <Text style={styles.reviewValue}>{visitorData.vehicle_number}</Text>
+            </View>
+            ) : null}
+            <View style={styles.reviewRow}>
+                <Text style={styles.reviewLabel}>TYPE</Text>
+                <Text style={styles.reviewValue}>{visitorData.type}</Text>
             </View>
             <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>PURPOSE</Text>
@@ -416,6 +441,31 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     fontSize: 16,
+    color: '#fff',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  typeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    marginRight: 8,
+  },
+  typeButtonActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  typeButtonText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  typeButtonTextActive: {
     color: '#fff',
   },
   footer: {

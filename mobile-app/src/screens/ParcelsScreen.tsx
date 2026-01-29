@@ -7,7 +7,9 @@ import {
   FlatList,
   TextInput,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +23,7 @@ export default function ParcelsScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchParcels();
@@ -41,6 +44,46 @@ export default function ParcelsScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchParcels().then(() => setRefreshing(false));
+  }, []);
+
+  const collectParcel = async (id: number) => {
+    Alert.alert(
+      "Confirm Collection",
+      "Are you sure you want to mark this parcel as collected?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Confirm", 
+          onPress: async () => {
+            try {
+              const token = await Storage.getToken();
+              const response = await fetch(`${API_URL}${ENDPOINTS.PARCELS}${id}/collect`, {
+                method: 'PUT',
+                headers: { 
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                // Refresh list
+                fetchParcels();
+              } else {
+                Alert.alert("Error", "Failed to mark parcel as collected");
+              }
+            } catch (e) {
+              console.error('Error collecting parcel:', e);
+              Alert.alert("Error", "Network error occurred");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderItem = ({ item }: any) => {
@@ -80,9 +123,17 @@ export default function ParcelsScreen({ navigation }: any) {
         </View>
 
         {item.status === 'Pending' && (
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Mark as Collected</Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ color: '#94a3b8', fontSize: 12, fontStyle: 'italic', marginBottom: 8 }}>
+              Please visit the gate to collect.
+            </Text>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => collectParcel(item.id)}
+            >
+              <Text style={styles.actionButtonText}>Mark as Collected</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </Container>
     );
@@ -117,9 +168,22 @@ export default function ParcelsScreen({ navigation }: any) {
         <FlatList
           data={parcels}
           renderItem={renderItem}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8b5cf6" />
+          }
+          ListEmptyComponent={
+            !loading ? (
+              <View style={{ padding: SPACING.xl, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.xl }}>
+                <Package size={48} color="#94a3b8" />
+                <Text style={{ color: "#94a3b8", marginTop: SPACING.md, fontSize: 16 }}>
+                  No parcels found
+                </Text>
+              </View>
+            ) : null
+          }
         />
       </SafeAreaView>
     </View>
