@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import {
   ChevronLeft,
   Calendar,
@@ -20,49 +19,53 @@ import {
   Info
 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
+import { getImageUrl } from '../utils/image';
 
 const { width } = Dimensions.get('window');
 
-// Mock Data
-const AMENITIES = [
-  { 
-    id: '1', 
-    name: 'Swimming Pool', 
-    status: 'Open', 
-    hours: '6:00 AM - 10:00 PM',
-    capacity: '50',
-    image: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&q=80&w=500'
-  },
-  { 
-    id: '2', 
-    name: 'Clubhouse', 
-    status: 'Booked', 
-    hours: '8:00 AM - 11:00 PM',
-    capacity: '100',
-    image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=500'
-  },
-  { 
-    id: '3', 
-    name: 'Tennis Court', 
-    status: 'Maintenance', 
-    hours: '6:00 AM - 9:00 PM',
-    capacity: '4',
-    image: 'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&q=80&w=500'
-  },
-  { 
-    id: '4', 
-    name: 'Gym', 
-    status: 'Open', 
-    hours: '24/7',
-    capacity: '30',
-    image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=500'
-  },
-];
-
 export default function AmenitiesScreen({ navigation }: any) {
+  const [amenities, setAmenities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAmenities();
+  }, []);
+
+  const fetchAmenities = async () => {
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.AMENITIES}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to load amenities');
+      }
+      const data = await response.json();
+      const formatted = data.map((a: any) => ({
+        id: a.id?.toString(),
+        name: a.name,
+        status: a.status, // available | maintenance | closed
+        hours: a.open_hours || '—',
+        capacity: a.capacity?.toString() || '—',
+        image: getImageUrl(a.image_url),
+      }));
+      setAmenities(formatted);
+    } catch (e) {
+      console.error('Amenities fetch error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderItem = ({ item }: any) => (
     <TouchableOpacity style={styles.card} activeOpacity={0.9}>
-      <Image source={{ uri: item.image }} style={styles.cardImage} />
+      {item.image ? (
+        <Image source={{ uri: item.image }} style={styles.cardImage} />
+      ) : (
+        <View style={[styles.cardImage, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+      )}
       <LinearGradient
         colors={['transparent', 'rgba(0,0,0,0.8)']}
         style={styles.cardGradient}
@@ -73,9 +76,9 @@ export default function AmenitiesScreen({ navigation }: any) {
           <Text style={styles.cardTitle}>{item.name}</Text>
           <View style={[
             styles.statusBadge,
-            { backgroundColor: item.status === 'Open' ? '#10b981' : item.status === 'Booked' ? '#f59e0b' : '#ef4444' }
+            { backgroundColor: item.status === 'available' ? '#10b981' : item.status === 'maintenance' ? '#f59e0b' : '#ef4444' }
           ]}>
-            <Text style={styles.statusText}>{item.status}</Text>
+            <Text style={styles.statusText}>{item.status?.toUpperCase()}</Text>
           </View>
         </View>
 
@@ -96,22 +99,22 @@ export default function AmenitiesScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[COLORS.background, '#1e293b']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ChevronLeft color={COLORS.textPrimary} size={24} />
+            <ChevronLeft color="#fff" size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Amenities</Text>
           <TouchableOpacity style={styles.addButton}>
-            <Plus color={COLORS.textPrimary} size={24} />
+            <Plus color="#fff" size={24} />
           </TouchableOpacity>
         </View>
 
         <FlatList
-          data={AMENITIES}
+          data={amenities}
           renderItem={renderItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
@@ -125,7 +128,7 @@ export default function AmenitiesScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#0f172a',
   },
   background: {
     position: 'absolute',
@@ -150,7 +153,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#f1f5f9',
   },
   addButton: {
     padding: 8,

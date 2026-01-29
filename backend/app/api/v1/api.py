@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import visitors, login, users, financial, notices, incidents, tickets, amenities, bookings, staff, notifications, marketplace, utils, vehicles, parcels, polls, documents, mfa, security, upload, properties, tenants, packages, stats
+from app.api.v1.endpoints import visitors, login, users, financial, notices, incidents, tickets, amenities, bookings, staff, notifications, marketplace, utils, vehicles, parcels, polls, documents, mfa, security, upload, properties, tenants, packages, stats, websockets
 
 api_router = APIRouter()
 
@@ -31,3 +31,4 @@ api_router.include_router(properties.router, prefix="/properties", tags=["proper
 api_router.include_router(tenants.router, prefix="/tenants", tags=["tenants"])
 api_router.include_router(packages.router, prefix="/packages", tags=["packages"])
 api_router.include_router(stats.router, prefix="/stats", tags=["stats"])
+api_router.include_router(websockets.router, tags=["websockets"])

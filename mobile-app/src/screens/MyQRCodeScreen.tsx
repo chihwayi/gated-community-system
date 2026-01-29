@@ -57,7 +57,7 @@ export default function MyQRCodeScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#1a1a2e', '#16213e']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       

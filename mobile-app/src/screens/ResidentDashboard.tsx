@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +32,7 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
 import Toast from 'react-native-toast-message';
+import { registerForPushNotificationsAsync, updateUserPushToken, simulatePanicNotification } from '../utils/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -60,14 +62,39 @@ export default function ResidentDashboard({ route, navigation }: any) {
         { 
           text: 'YES, HELP!', 
           style: 'destructive',
-          onPress: () => {
-             // Logic to call backend API would go here
-             Toast.show({
-                type: 'error',
-                text1: 'EMERGENCY ALERT SENT',
-                text2: 'Security and Response Team have been notified.',
-                visibilityTime: 6000,
-             });
+          onPress: async () => {
+             try {
+               const token = await Storage.getToken();
+               const response = await fetch(`${API_URL}${ENDPOINTS.SOS}`, {
+                 method: 'POST',
+                 headers: {
+                   'Authorization': `Bearer ${token}`,
+                   'Content-Type': 'application/json',
+                 },
+               });
+
+               if (!response.ok) {
+                 throw new Error('Failed to trigger SOS');
+               }
+
+               // Simulate Push Notification for local user (since Expo Go Android doesn't support remote push)
+               await simulatePanicNotification();
+
+               Toast.show({
+                  type: 'error',
+                  text1: 'EMERGENCY ALERT SENT',
+                  text2: 'Security and Response Team have been notified.',
+                  visibilityTime: 6000,
+               });
+             } catch (error) {
+               console.error('SOS Error:', error);
+               Toast.show({
+                 type: 'error',
+                 text1: 'Connection Error',
+                 text2: 'Could not trigger digital alarm. Call 911/Emergency services immediately!',
+                 visibilityTime: 10000,
+               });
+             }
           }
         }
       ]
@@ -93,7 +120,19 @@ export default function ResidentDashboard({ route, navigation }: any) {
 
   useEffect(() => {
     fetchData();
+    setupNotifications();
   }, []);
+
+  const setupNotifications = async () => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        await updateUserPushToken(token);
+      }
+    } catch (error) {
+      console.log('Error setting up notifications:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -140,16 +179,19 @@ export default function ResidentDashboard({ route, navigation }: any) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a2e' }]}>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
+  const Container = Platform.OS === 'ios' ? BlurView : View;
+  const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#1a1a2e', '#16213e']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       
@@ -169,36 +211,36 @@ export default function ResidentDashboard({ route, navigation }: any) {
             </View>
             <View style={styles.headerButtons}>
                 <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
-                    <BlurView intensity={20} tint="dark" style={styles.blurBtn}>
+                    <Container {...containerProps} style={[styles.blurBtn, Platform.OS === 'android' && styles.androidCard]}>
                         <LogOut color="#fff" size={20} />
-                    </BlurView>
+                    </Container>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.iconButton, { marginLeft: 8 }]}>
-                    <BlurView intensity={20} tint="dark" style={styles.blurBtn}>
+                    <Container {...containerProps} style={[styles.blurBtn, Platform.OS === 'android' && styles.androidCard]}>
                         <Bell color="#fff" size={20} />
                         <View style={styles.notificationDot} />
-                    </BlurView>
+                    </Container>
                 </TouchableOpacity>
             </View>
           </View>
 
           {/* Stats Cards */}
           <View style={styles.statsGrid}>
-            <BlurView intensity={20} tint="dark" style={styles.statsCard}>
+            <Container {...containerProps} style={[styles.statsCard, Platform.OS === 'android' && styles.androidCard]}>
                 <Users color="#60a5fa" size={24} style={styles.statsIcon} />
                 <Text style={styles.statsValue}>{visitors.length}</Text>
                 <Text style={styles.statsLabel}>Visitors</Text>
-            </BlurView>
-            <BlurView intensity={20} tint="dark" style={styles.statsCard}>
+            </Container>
+            <Container {...containerProps} style={[styles.statsCard, Platform.OS === 'android' && styles.androidCard]}>
                 <Wallet color="#34d399" size={24} style={styles.statsIcon} />
                 <Text style={styles.statsValue}>$0</Text>
                 <Text style={styles.statsLabel}>Balance</Text>
-            </BlurView>
-            <BlurView intensity={20} tint="dark" style={styles.statsCard}>
+            </Container>
+            <Container {...containerProps} style={[styles.statsCard, Platform.OS === 'android' && styles.androidCard]}>
                 <FileText color="#c084fc" size={24} style={styles.statsIcon} />
                 <Text style={styles.statsValue}>2</Text>
                 <Text style={styles.statsLabel}>Notices</Text>
-            </BlurView>
+            </Container>
           </View>
 
           {/* Emergency Panic Button Card */}
@@ -306,6 +348,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   background: {
     position: 'absolute',

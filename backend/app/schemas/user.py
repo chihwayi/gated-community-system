@@ -29,6 +29,7 @@ class UserUpdate(BaseModel):
     profile_picture: Optional[str] = None
     is_active: Optional[bool] = None
     is_password_changed: Optional[bool] = None
+    push_token: Optional[str] = None
 
 class UserPasswordChange(BaseModel):
     current_password: str

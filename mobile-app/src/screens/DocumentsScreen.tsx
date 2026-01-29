@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,9 +33,13 @@ const DOCUMENTS = [
 ];
 
 export default function DocumentsScreen({ navigation }: any) {
-  const renderItem = ({ item }: any) => (
+  const renderItem = ({ item }: any) => {
+    const Container = Platform.OS === 'ios' ? BlurView : View;
+    const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+
+    return (
     <TouchableOpacity style={styles.itemContainer}>
-      <BlurView intensity={20} tint="light" style={styles.itemBlur}>
+      <Container {...containerProps} style={[styles.itemBlur, Platform.OS === 'android' && styles.androidCard]}>
         <View style={styles.iconContainer}>
           {item.type === 'folder' ? (
             <Folder color="#fbbf24" size={24} />
@@ -53,14 +58,15 @@ export default function DocumentsScreen({ navigation }: any) {
         <TouchableOpacity style={styles.moreButton}>
           <MoreVertical color={COLORS.textSecondary} size={20} />
         </TouchableOpacity>
-      </BlurView>
+      </Container>
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[COLORS.background, '#f1f5f9']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       <SafeAreaView style={styles.safeArea}>
@@ -142,51 +148,45 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: BORDER_RADIUS.l,
     padding: SPACING.m,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: '#fff',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  listContent: {
-    paddingHorizontal: SPACING.l,
-    paddingBottom: SPACING.xl,
+    color: '#94a3b8',
   },
   itemContainer: {
     marginBottom: SPACING.m,
-    borderRadius: BORDER_RADIUS.l,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    marginHorizontal: SPACING.l,
   },
   itemBlur: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.m,
+    borderRadius: BORDER_RADIUS.l,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: '#f8fafc',
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.m,
@@ -197,14 +197,17 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: '#fff',
     marginBottom: 4,
   },
   itemMeta: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: '#94a3b8',
   },
   moreButton: {
     padding: 8,
+  },
+  listContent: {
+    paddingBottom: SPACING.xl,
   },
 });

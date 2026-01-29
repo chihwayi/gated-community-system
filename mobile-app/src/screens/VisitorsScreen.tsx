@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,24 +25,43 @@ import {
   MoreVertical
 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
 
 const { width } = Dimensions.get('window');
 
-// Mock Data
-const MOCK_VISITORS = [
-  { id: '1', name: 'James Wilson', type: 'Delivery', host: 'Sarah Williams', unit: 'A-101', time: '10:30 AM', status: 'Checked In' },
-  { id: '2', name: 'Linda Brown', type: 'Guest', host: 'John Doe', unit: 'B-205', time: '11:15 AM', status: 'Expected' },
-  { id: '3', name: 'Tech Solutions', type: 'Contractor', host: 'Estate Office', unit: 'Admin', time: '09:00 AM', status: 'Checked Out' },
-  { id: '4', name: 'Uber Eats', type: 'Delivery', host: 'Emily Davis', unit: 'C-304', time: '12:45 PM', status: 'Checked In' },
-  { id: '5', name: 'Mike Johnson', type: 'Guest', host: 'Robert Smith', unit: 'A-102', time: 'Yesterday', status: 'Checked Out' },
-];
-
 export default function VisitorsScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [visitors, setVisitors] = useState(MOCK_VISITORS);
+  const [visitors, setVisitors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const renderItem = ({ item }: any) => (
-    <BlurView intensity={20} tint="light" style={styles.card}>
+  useEffect(() => {
+    fetchVisitors();
+  }, []);
+
+  const fetchVisitors = async () => {
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.VISITORS}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setVisitors(data);
+      }
+    } catch (e) {
+      console.error('Error fetching visitors:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderItem = ({ item }: any) => {
+    const Container = Platform.OS === 'ios' ? BlurView : View;
+    const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+
+    return (
+    <Container {...containerProps} style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
       <View style={styles.cardHeader}>
         <View style={styles.userInfo}>
           <View style={[styles.avatar, { backgroundColor: item.type === 'Delivery' ? '#f59e0b' : item.type === 'Contractor' ? '#6366f1' : '#3b82f6' }]}>
@@ -55,11 +76,11 @@ export default function VisitorsScreen({ navigation }: any) {
         </View>
         <View style={[
             styles.statusBadge, 
-            { backgroundColor: item.status === 'Checked In' ? '#d1fae5' : item.status === 'Expected' ? '#fef3c7' : '#f3f4f6' }
+            { backgroundColor: item.status === 'Checked In' ? 'rgba(16, 185, 129, 0.2)' : item.status === 'Expected' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(75, 85, 99, 0.2)' }
         ]}>
           <Text style={[
             styles.statusText, 
-            { color: item.status === 'Checked In' ? '#059669' : item.status === 'Expected' ? '#d97706' : '#4b5563' }
+            { color: item.status === 'Checked In' ? '#34d399' : item.status === 'Expected' ? '#fbbf24' : '#9ca3af' }
           ]}>
             {item.status}
           </Text>
@@ -70,46 +91,47 @@ export default function VisitorsScreen({ navigation }: any) {
 
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
-          <User size={14} color={COLORS.textSecondary} />
+          <User size={14} color="#94a3b8" />
           <Text style={styles.detailText}>Host: {item.host}</Text>
         </View>
         <View style={styles.detailRow}>
-          <MapPin size={14} color={COLORS.textSecondary} />
+          <MapPin size={14} color="#94a3b8" />
           <Text style={styles.detailText}>{item.unit}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Clock size={14} color={COLORS.textSecondary} />
+          <Clock size={14} color="#94a3b8" />
           <Text style={styles.detailText}>{item.time}</Text>
         </View>
       </View>
-    </BlurView>
+    </Container>
   );
+  };
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[COLORS.background, '#eef2f3']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ChevronLeft color={COLORS.textPrimary} size={24} />
+            <ChevronLeft color="#fff" size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Visitors</Text>
           <TouchableOpacity style={styles.filterButton}>
-            <Filter color={COLORS.textPrimary} size={24} />
+            <Filter color="#fff" size={24} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.searchContainer}>
-          <Search color={COLORS.textSecondary} size={20} style={styles.searchIcon} />
+          <Search color="#94a3b8" size={20} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search visitors..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor="#64748b"
           />
         </View>
 
@@ -153,7 +175,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#f1f5f9',
   },
   filterButton: {
     padding: 8,
@@ -161,17 +183,14 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     marginHorizontal: SPACING.l,
     marginBottom: SPACING.l,
     paddingHorizontal: SPACING.m,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   searchIcon: {
     marginRight: SPACING.sm,
@@ -179,7 +198,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.textPrimary,
+    color: '#f1f5f9',
     paddingVertical: 8,
   },
   listContent: {
@@ -187,13 +206,16 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xl,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: BORDER_RADIUS.l,
     padding: SPACING.m,
     marginBottom: SPACING.m,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -240,7 +262,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     marginVertical: SPACING.m,
   },
   detailsContainer: {
@@ -254,6 +276,6 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: '#94a3b8',
   },
 });

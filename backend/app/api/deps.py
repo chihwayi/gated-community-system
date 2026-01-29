@@ -83,3 +83,19 @@ def get_current_tenant(
     if not current_user.tenant.is_active:
         raise HTTPException(status_code=403, detail="Tenant is suspended")
     return current_user.tenant
+
+async def get_current_user_ws(token: str) -> Optional[models.User]:
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+    except (JWTError, ValidationError):
+        return None
+        
+    db = SessionLocal()
+    try:
+        user = db.query(models.User).filter(models.User.id == int(token_data.sub)).first()
+        return user
+    finally:
+        db.close()

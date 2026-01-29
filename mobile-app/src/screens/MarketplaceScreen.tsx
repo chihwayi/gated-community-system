@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,60 +8,102 @@ import {
   Image,
   Dimensions,
   TextInput,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { ChevronLeft, Search, Filter, Tag, Trash2, Edit2, ShoppingBag } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
+import Toast from 'react-native-toast-message';
+import { getImageUrl } from '../utils/image';
 
 const { width } = Dimensions.get('window');
-
-// Mock Data
-const MOCK_LISTINGS = [
-  { id: '1', title: 'Kids Bicycle', price: '$45', category: 'Sports', seller: 'John Doe', status: 'Active', image: 'https://via.placeholder.com/150' },
-  { id: '2', title: 'Sofa Set', price: '$250', category: 'Furniture', seller: 'Sarah Smith', status: 'Pending', image: 'https://via.placeholder.com/150' },
-  { id: '3', title: 'Microwave', price: '$30', category: 'Electronics', seller: 'Mike Johnson', status: 'Sold', image: 'https://via.placeholder.com/150' },
-];
 
 export default function MarketplaceScreen({ route, navigation }: any) {
   const { mode } = route.params || {};
   const isAdmin = mode === 'admin';
   const [searchQuery, setSearchQuery] = useState('');
-  const [listings, setListings] = useState(MOCK_LISTINGS);
+  const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const renderItem = ({ item }: any) => (
-    <BlurView intensity={20} tint="dark" style={styles.card}>
-      <Image source={{ uri: item.image }} style={styles.image} />
-      <View style={styles.contentContainer}>
-        <View style={styles.headerRow}>
-            <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.price}>{item.price}</Text>
+  useEffect(() => {
+    fetchListings();
+  }, []);
+
+  const fetchListings = async () => {
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.MARKETPLACE}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setListings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching marketplace items:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load marketplace listings',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const renderItem = ({ item }: any) => {
+    const Container = Platform.OS === 'ios' ? BlurView : View;
+    const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+    const imageUrl = item.image_urls?.[0] ? getImageUrl(item.image_urls[0]) : null;
+    const price = `$${(item.price / 100).toFixed(2)}`;
+    const sellerName = item.seller?.full_name || 'Unknown';
+
+    return (
+      <Container {...containerProps} style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.image} />
+        ) : (
+          <View style={[styles.image, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+        )}
+        <View style={styles.contentContainer}>
+          <View style={styles.headerRow}>
+              <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.price}>{price}</Text>
+          </View>
+          <Text style={styles.seller}>By {sellerName}</Text>
+          <View style={styles.footerRow}>
+              <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{item.category}</Text>
+              </View>
+              <View style={[styles.statusBadge, { backgroundColor: item.status === 'available' ? '#10b981' : '#f59e0b' }]}>
+                  <Text style={styles.statusText}>{item.status?.toUpperCase()}</Text>
+              </View>
+          </View>
+          
+          {/* Admin Actions */}
+          {isAdmin && (
+          <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.actionBtn}>
+                  <Edit2 size={16} color="#3b82f6" />
+                  <Text style={styles.actionText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn}>
+                  <Trash2 size={16} color="#ef4444" />
+                  <Text style={[styles.actionText, { color: '#ef4444' }]}>Remove</Text>
+              </TouchableOpacity>
+          </View>
+          )}
         </View>
-        <Text style={styles.seller}>By {item.seller}</Text>
-        <View style={styles.footerRow}>
-            <View style={styles.badge}>
-                <Text style={styles.badgeText}>{item.category}</Text>
-            </View>
-            <View style={[styles.statusBadge, { backgroundColor: item.status === 'Active' ? '#10b981' : '#f59e0b' }]}>
-                <Text style={styles.statusText}>{item.status}</Text>
-            </View>
-        </View>
-        
-        {/* Admin Actions */}
-        <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.actionBtn}>
-                <Edit2 size={16} color="#3b82f6" />
-                <Text style={styles.actionText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn}>
-                <Trash2 size={16} color="#ef4444" />
-                <Text style={[styles.actionText, { color: '#ef4444' }]}>Remove</Text>
-            </TouchableOpacity>
-        </View>
-      </View>
-    </BlurView>
-  );
+      </Container>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -99,9 +141,11 @@ export default function MarketplaceScreen({ route, navigation }: any) {
         <FlatList
           data={listings}
           renderItem={renderItem}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={fetchListings}
         />
       </SafeAreaView>
     </View>
@@ -184,6 +228,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   image: {
     width: 100,

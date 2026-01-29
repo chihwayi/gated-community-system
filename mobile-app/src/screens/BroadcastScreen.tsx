@@ -52,7 +52,7 @@ export default function BroadcastScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#0a1628', '#020617']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       

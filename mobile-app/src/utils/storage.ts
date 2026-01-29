@@ -3,9 +3,47 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEYS = {
   SELECTED_TENANT: 'gated_community_selected_tenant',
   AUTH_TOKEN: 'gated_community_auth_token',
+  USER_PROFILE: 'gated_community_user_profile',
 };
 
 export const Storage = {
+  // Generic
+  getItem: async (key: string) => {
+      try {
+          return await AsyncStorage.getItem(key);
+      } catch (e) {
+          console.error('Failed to get item', e);
+          return null;
+      }
+  },
+
+  setItem: async (key: string, value: string) => {
+      try {
+          await AsyncStorage.setItem(key, value);
+      } catch (e) {
+          console.error('Failed to set item', e);
+      }
+  },
+
+  // User Profile
+  saveUser: async (user: any) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(user));
+    } catch (e) {
+      console.error('Failed to save user', e);
+    }
+  },
+
+  getUser: async () => {
+    try {
+      const user = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+      return user ? JSON.parse(user) : null;
+    } catch (e) {
+      console.error('Failed to get user', e);
+      return null;
+    }
+  },
+
   // Tenant Persistence
   saveTenant: async (tenant: any) => {
     try {

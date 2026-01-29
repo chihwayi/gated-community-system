@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,13 @@ import {
   TouchableOpacity,
   Dimensions,
   Image,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,88 +23,287 @@ import {
   Phone,
   Mail,
   MoreHorizontal,
-  Plus
+  Plus,
+  X
 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
+import Toast from 'react-native-toast-message';
+import { getImageUrl } from '../utils/image';
 
 const { width } = Dimensions.get('window');
 
-// Mock Data
-const STAFF = [
-  { id: '1', name: 'John Smith', role: 'Security Manager', phone: '+1234567890', status: 'On Duty', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-  { id: '2', name: 'Maria Garcia', role: 'Concierge', phone: '+1987654321', status: 'On Duty', image: 'https://randomuser.me/api/portraits/women/2.jpg' },
-  { id: '3', name: 'Robert Johnson', role: 'Maintenance Lead', phone: '+1122334455', status: 'Off Duty', image: 'https://randomuser.me/api/portraits/men/3.jpg' },
-  { id: '4', name: 'Sarah Wilson', role: 'Gardener', phone: '+1555666777', status: 'On Duty', image: 'https://randomuser.me/api/portraits/women/4.jpg' },
-];
-
 export default function StaffScreen({ navigation }: any) {
-  const renderItem = ({ item }: any) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Image source={{ uri: item.image }} style={styles.avatar} />
-        <View style={styles.info}>
-          <Text style={styles.name}>{item.name}</Text>
-          <Text style={styles.role}>{item.role}</Text>
-        </View>
-        <TouchableOpacity style={styles.moreButton}>
-            <MoreHorizontal color={COLORS.textSecondary} size={20} />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.divider} />
-      
-      <View style={styles.actions}>
-        <View style={[styles.statusBadge, { backgroundColor: item.status === 'On Duty' ? '#dcfce7' : '#f1f5f9' }]}>
-            <Text style={[styles.statusText, { color: item.status === 'On Duty' ? '#16a34a' : '#64748b' }]}>
-                {item.status}
-            </Text>
+  const [staff, setStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Add Staff Modal State
+  const [modalVisible, setModalVisible] = useState(false);
+  const [newStaff, setNewStaff] = useState({
+    full_name: '',
+    phone_number: '',
+    staff_type: 'maid', // Default
+  });
+  const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    fetchStaff();
+  }, []);
+
+  const fetchStaff = async () => {
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.STAFF}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch staff');
+      }
+
+      const data = await response.json();
+      setStaff(data);
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load staff list',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStaff = async () => {
+    if (!newStaff.full_name || !newStaff.phone_number) {
+        Alert.alert('Error', 'Please fill all required fields');
+        return;
+    }
+
+    setAdding(true);
+    try {
+        const token = await Storage.getToken();
+        const response = await fetch(`${API_URL}${ENDPOINTS.STAFF}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(newStaff),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to create staff');
+        }
+
+        Toast.show({
+            type: 'success',
+            text1: 'Success',
+            text2: 'Staff created successfully',
+        });
+        
+        setModalVisible(false);
+        setNewStaff({
+            full_name: '',
+            phone_number: '',
+            staff_type: 'maid',
+        });
+        fetchStaff();
+    } catch (error: any) {
+        Alert.alert('Error', error.message);
+    } finally {
+        setAdding(false);
+    }
+  };
+
+  const renderItem = ({ item }: any) => {
+    const Container = Platform.OS === 'ios' ? BlurView : View;
+    const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+
+    return (
+      <Container {...containerProps} style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
+        <View style={styles.cardHeader}>
+          {item.photo_url ? (
+            <Image 
+              source={{ uri: getImageUrl(item.photo_url) }} 
+              style={styles.avatar} 
+            />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                {item.full_name?.substring(0, 2)?.toUpperCase() || 'ST'}
+              </Text>
+            </View>
+          )}
+          <View style={styles.info}>
+            <Text style={styles.name}>{item.full_name}</Text>
+            <Text style={styles.role}>{item.staff_type}</Text>
+          </View>
+          <TouchableOpacity style={styles.moreButton}>
+              <MoreHorizontal color="#94a3b8" size={20} />
+          </TouchableOpacity>
         </View>
         
-        <View style={styles.contactActions}>
-            <TouchableOpacity style={styles.actionButton}>
-                <Phone size={18} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-                <Mail size={18} color={COLORS.textSecondary} />
-            </TouchableOpacity>
+        <View style={styles.divider} />
+        
+        <View style={styles.actions}>
+          <View style={[styles.statusBadge, { backgroundColor: item.status === 'active' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(148, 163, 184, 0.2)' }]}>
+              <Text style={[styles.statusText, { color: item.status === 'active' ? '#4ade80' : '#94a3b8' }]}>
+                  {item.status}
+              </Text>
+          </View>
+          
+          <View style={styles.contactActions}>
+              <TouchableOpacity style={styles.actionButton}>
+                  <Phone size={18} color="#cbd5e1" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                  <Mail size={18} color="#cbd5e1" />
+              </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </View>
-  );
+      </Container>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[COLORS.background, '#f8fafc']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ChevronLeft color={COLORS.textPrimary} size={24} />
+            <ChevronLeft color="#fff" size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Staff Directory</Text>
-          <TouchableOpacity style={styles.addButton}>
-            <Plus color={COLORS.textPrimary} size={24} />
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addButton}>
+            <Plus color="#fff" size={24} />
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={STAFF}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={staff}
+            renderItem={renderItem}
+            keyExtractor={item => item.id.toString()}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No staff members found.</Text>
+              </View>
+            }
+          />
+        )}
+
+        {/* Add Staff Modal */}
+        <Modal
+            visible={modalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setModalVisible(false)}
+        >
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.modalContainer}
+            >
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Add New Staff</Text>
+                        <TouchableOpacity onPress={() => setModalVisible(false)}>
+                            <X color="#94a3b8" size={24} />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <ScrollView style={styles.formContainer}>
+                        <Text style={styles.label}>Full Name</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Jane Doe"
+                            placeholderTextColor="#64748b"
+                            value={newStaff.full_name}
+                            onChangeText={(text) => setNewStaff({...newStaff, full_name: text})}
+                        />
+
+                        <Text style={styles.label}>Phone Number</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="+1 234 567 8900"
+                            placeholderTextColor="#64748b"
+                            value={newStaff.phone_number}
+                            onChangeText={(text) => setNewStaff({...newStaff, phone_number: text})}
+                            keyboardType="phone-pad"
+                        />
+
+                        <Text style={styles.label}>Staff Type</Text>
+                        <View style={styles.typeContainer}>
+                            {['maid', 'driver', 'cook', 'gardener', 'other'].map((type) => (
+                                <TouchableOpacity
+                                    key={type}
+                                    style={[
+                                        styles.typeButton,
+                                        newStaff.staff_type === type && styles.typeButtonActive
+                                    ]}
+                                    onPress={() => setNewStaff({...newStaff, staff_type: type})}
+                                >
+                                    <Text style={[
+                                        styles.typeButtonText,
+                                        newStaff.staff_type === type && styles.typeButtonTextActive
+                                    ]}>
+                                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <TouchableOpacity 
+                            style={styles.submitButton}
+                            onPress={handleAddStaff}
+                            disabled={adding}
+                        >
+                            {adding ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.submitButtonText}>Create Staff</Text>
+                            )}
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    padding: SPACING.l,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+  },
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#0f172a',
   },
   background: {
     position: 'absolute',
@@ -117,30 +323,119 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.m,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#fff',
   },
   addButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
   },
   listContent: {
     paddingHorizontal: SPACING.l,
     paddingBottom: SPACING.xl,
   },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: SPACING.l,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.l,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  formContainer: {
+    marginBottom: SPACING.xl,
+  },
+  label: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginBottom: SPACING.m,
+    marginTop: SPACING.m,
+  },
+  input: {
+    backgroundColor: '#334155',
+    borderRadius: BORDER_RADIUS.l,
+    padding: SPACING.m,
+    color: '#fff',
+    fontSize: 16,
+  },
+  typeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.m,
+    marginTop: SPACING.m,
+  },
+  typeButton: {
+    paddingHorizontal: SPACING.m,
+    paddingVertical: SPACING.m,
+    borderRadius: BORDER_RADIUS.l,
+    backgroundColor: '#334155',
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  typeButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  typeButtonText: {
+    color: '#94a3b8',
+    fontSize: 14,
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  submitButton: {
+    backgroundColor: COLORS.primary,
+    padding: SPACING.m,
+    borderRadius: BORDER_RADIUS.l,
+    alignItems: 'center',
+    marginTop: SPACING.xl,
+    marginBottom: SPACING.xl,
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   card: {
-    backgroundColor: '#fff',
     borderRadius: BORDER_RADIUS.l,
     padding: SPACING.m,
     marginBottom: SPACING.m,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)', // Darker background for Android fallback
   },
   cardHeader: {
     flexDirection: 'row',
@@ -152,6 +447,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     marginRight: SPACING.m,
+    backgroundColor: '#334155',
   },
   info: {
     flex: 1,
@@ -159,19 +455,19 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#fff',
     marginBottom: 2,
   },
   role: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: '#94a3b8',
   },
   moreButton: {
     padding: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     marginBottom: SPACING.m,
   },
   actions: {
@@ -196,7 +492,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },

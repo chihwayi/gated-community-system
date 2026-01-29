@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,17 @@ import {
   TouchableOpacity,
   Dimensions,
   Image,
+  Platform,
+  Alert,
+  Vibration
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Storage } from '../utils/storage';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { scheduleLocalNotification, registerForPushNotificationsAsync, updateUserPushToken } from '../utils/notifications';
+import { webSocketService } from '../services/WebSocketService';
 import {
   AlertTriangle,
   Users,
@@ -37,6 +43,7 @@ import {
   ShoppingBag
 } from 'lucide-react-native';
 import { SPACING } from '../constants/theme';
+import { getImageUrl } from '../utils/image';
 
 const { width } = Dimensions.get('window');
 
@@ -65,12 +72,69 @@ const MODULES = [
 ];
 
 export default function AdminDashboard({ navigation }: any) {
-  const [panicActive, setPanicActive] = useState(true);
+  const [panicActive, setPanicActive] = useState(false);
   const [tenant, setTenant] = useState<any>(null);
+  const panicRef = useRef(false);
 
   useEffect(() => {
     loadTenant();
+    setupNotifications();
+    
+    // Connect to WebSocket
+    webSocketService.connect();
+    
+    // Listen for panic alerts
+    const unsubscribe = webSocketService.addListener((data) => {
+      if (data.type === 'panic_alert') {
+        handlePanicAlert(data.incident);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      webSocketService.disconnect();
+      Vibration.cancel();
+    };
   }, []);
+
+  const handlePanicAlert = (incident: any) => {
+    // Vibrate heavily (SOS pattern: ... --- ...)
+    // Android: [wait, vibrate, wait, vibrate...]
+    // iOS: Ignores pattern duration but vibrates. 
+    // We set repeat=true to loop until acknowledged.
+    const PATTERN = [0, 500, 200, 500, 200, 500, 500, 1000, 500, 1000, 500, 1000, 200, 500, 200, 500, 200, 500];
+    Vibration.vibrate(PATTERN, true);
+    
+    setPanicActive(true);
+
+    Alert.alert(
+      '🚨 PANIC ALERT 🚨',
+      `SOS from ${incident.reporter_name}\nLocation: ${incident.location || 'Unknown'}\n\n${incident.description}`,
+      [
+        {
+          text: 'ACKNOWLEDGE',
+          onPress: () => {
+            Vibration.cancel();
+            setPanicActive(false);
+            navigation.navigate('Incidents');
+          },
+          style: 'destructive',
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const setupNotifications = async () => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        await updateUserPushToken(token);
+      }
+    } catch (error) {
+      console.log('Error setting up notifications:', error);
+    }
+  };
 
   const loadTenant = async () => {
     const t = await Storage.getTenant();
@@ -90,11 +154,11 @@ export default function AdminDashboard({ navigation }: any) {
           
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.headerTop}>
+            <View style={styles.headerLeft}>
               {/* Community Logo Placeholder */}
               <View style={styles.logoContainer}>
                 {tenant?.logo_url ? (
-                  <Image source={{ uri: tenant.logo_url }} style={styles.communityLogo} />
+                  <Image source={{ uri: getImageUrl(tenant.logo_url) }} style={styles.communityLogo} />
                 ) : (
                   <Text style={styles.logoText}>{tenant?.slug?.substring(0,2).toUpperCase() || 'GC'}</Text>
                 )}
@@ -104,9 +168,9 @@ export default function AdminDashboard({ navigation }: any) {
                 <Text style={styles.headerSubtitle}>Admin Dashboard</Text>
               </View>
             </View>
-            <View style={styles.profileIcon}>
+            <TouchableOpacity style={styles.profileIcon} onPress={() => navigation.navigate('Settings')}>
                 <Text style={styles.profileInitials}>AD</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
 
@@ -159,7 +223,11 @@ export default function AdminDashboard({ navigation }: any) {
           {/* Modules Grid */}
           <Text style={styles.sectionTitle}>Management Modules</Text>
           <View style={styles.actionsGrid}>
-            {MODULES.map((module) => (
+            {MODULES.map((module) => {
+              const Container = Platform.OS === 'ios' ? BlurView : View;
+              const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+
+              return (
                 <TouchableOpacity 
                   key={module.id} 
                   style={styles.actionCard}
@@ -171,14 +239,18 @@ export default function AdminDashboard({ navigation }: any) {
                     }
                   }}
                 >
-                    <BlurView intensity={20} tint="dark" style={styles.actionBlur}>
+                    <Container 
+                      {...containerProps} 
+                      style={[styles.actionBlur, Platform.OS === 'android' && styles.androidCard]}
+                    >
                         <View style={[styles.actionIcon, { backgroundColor: module.color + '20' }]}>
                             <module.icon color={module.color} size={24} />
                         </View>
                         <Text style={styles.actionTitle}>{module.title}</Text>
-                    </BlurView>
+                    </Container>
                 </TouchableOpacity>
-            ))}
+              );
+            })}
           </View>
 
         </ScrollView>
@@ -209,13 +281,14 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: SPACING.l,
+    paddingHorizontal: SPACING.l,
+    paddingTop: SPACING.m,
   },
-  headerTop: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   logoContainer: {
     width: 24,
@@ -224,6 +297,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0891b2',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   logoText: {
     color: '#fff',
@@ -434,6 +508,9 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   actionBlur: {
     flex: 1,
