@@ -16,12 +16,15 @@ import { ChevronLeft, Check, Share2, Copy } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import Toast from 'react-native-toast-message';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
 
 const { width } = Dimensions.get('window');
 
 export default function VisitorRegistrationScreen({ navigation }: any) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [createdVisitor, setCreatedVisitor] = useState<any | null>(null);
   const [visitorData, setVisitorData] = useState({
     name: '',
     phone: '',
@@ -43,16 +46,45 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
       setStep(2);
     } else if (step === 2) {
       setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        setLoading(false);
-        setStep(3);
-        Toast.show({
+      (async () => {
+        try {
+          const token = await Storage.getToken();
+          const payload = {
+            full_name: visitorData.name,
+            phone_number: visitorData.phone,
+            purpose: visitorData.purpose,
+            expected_arrival: new Date(visitorData.date).toISOString(),
+          };
+          const response = await fetch(`${API_URL}${ENDPOINTS.VISITORS}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to register visitor');
+          }
+          const data = await response.json();
+          setCreatedVisitor(data);
+          setStep(3);
+          Toast.show({
             type: 'success',
             text1: 'Visitor Registered',
-            text2: 'QR Code generated successfully',
-        });
-      }, 1500);
+            text2: 'Access code generated',
+          });
+        } catch (e: any) {
+          Toast.show({
+            type: 'error',
+            text1: 'Registration Failed',
+            text2: e?.message || 'Please try again',
+          });
+        } finally {
+          setLoading(false);
+        }
+      })();
     }
   };
 
@@ -173,7 +205,7 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
             
             <View style={styles.qrWrapper}>
                 <QRCode
-                    value={JSON.stringify(visitorData)}
+                    value={createdVisitor?.access_code ? createdVisitor.access_code : JSON.stringify(visitorData)}
                     size={200}
                     color="black"
                     backgroundColor="white"

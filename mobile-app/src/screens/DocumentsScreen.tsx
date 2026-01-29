@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -20,19 +20,54 @@ import {
   Search
 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
 
 const { width } = Dimensions.get('window');
 
-// Mock Data
-const DOCUMENTS = [
-  { id: '1', name: 'Community Guidelines.pdf', type: 'file', size: '2.4 MB', date: 'Oct 24, 2023' },
-  { id: '2', name: 'Financial Reports 2023', type: 'folder', items: '12 items', date: 'Dec 01, 2023' },
-  { id: '3', name: 'Meeting Minutes', type: 'folder', items: '5 items', date: 'Nov 15, 2023' },
-  { id: '4', name: 'Pool Rules.pdf', type: 'file', size: '1.1 MB', date: 'Sep 10, 2023' },
-  { id: '5', name: 'Architectural Guidelines.pdf', type: 'file', size: '5.6 MB', date: 'Aug 05, 2023' },
-];
+type DocumentItem = {
+  id: string;
+  name: string;
+  type: 'file' | 'folder';
+  date: string;
+  size?: string;
+  items?: string;
+  url?: string;
+};
 
 export default function DocumentsScreen({ navigation }: any) {
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.DOCUMENTS}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to load documents');
+      }
+      const data = await response.json();
+      const formatted: DocumentItem[] = data.map((d: any) => ({
+        id: d.id?.toString(),
+        name: d.title,
+        type: 'file',
+        date: new Date(d.created_at).toLocaleDateString(),
+        url: d.file_url,
+      }));
+      setDocuments(formatted);
+    } catch (e) {
+      console.error('Documents fetch error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderItem = ({ item }: any) => {
     const Container = Platform.OS === 'ios' ? BlurView : View;
     const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
@@ -51,7 +86,7 @@ export default function DocumentsScreen({ navigation }: any) {
         <View style={styles.itemInfo}>
           <Text style={styles.itemName}>{item.name}</Text>
           <Text style={styles.itemMeta}>
-            {item.type === 'folder' ? item.items : item.size} • {item.date}
+            {item.type === 'folder' ? item.items : item.size || '—'} • {item.date}
           </Text>
         </View>
 
@@ -82,26 +117,37 @@ export default function DocumentsScreen({ navigation }: any) {
 
         <View style={styles.statsContainer}>
             <View style={styles.statCard}>
-                <Text style={styles.statValue}>156</Text>
+                <Text style={styles.statValue}>{documents.length}</Text>
                 <Text style={styles.statLabel}>Total Files</Text>
             </View>
             <View style={styles.statCard}>
-                <Text style={styles.statValue}>12</Text>
+                <Text style={styles.statValue}>—</Text>
                 <Text style={styles.statLabel}>Folders</Text>
             </View>
             <View style={styles.statCard}>
-                <Text style={styles.statValue}>1.2GB</Text>
+                <Text style={styles.statValue}>—</Text>
                 <Text style={styles.statLabel}>Used Space</Text>
             </View>
         </View>
 
-        <FlatList
-          data={DOCUMENTS}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+        {loading ? (
+          <View style={{ padding: SPACING.l }}>
+            <Text style={{ color: COLORS.textSecondary }}>Loading documents...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={documents}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={{ padding: SPACING.l }}>
+                <Text style={{ color: COLORS.textSecondary }}>No documents found</Text>
+              </View>
+            }
+          />
+        )}
       </SafeAreaView>
     </View>
   );

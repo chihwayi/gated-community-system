@@ -62,11 +62,7 @@ export default function LandingScreen({ navigation }: any) {
       console.error(err);
       if (refresh) {
         setError('Could not load communities. Please check your connection.');
-        // Fallback data for demo
-        setTenants([
-          { id: 1, name: 'Sunrise Apartments', slug: 'sunrise', logo_url: null },
-          { id: 2, name: 'Golden Valley Estate', slug: 'golden-valley', logo_url: null },
-        ]);
+        setTenants([]);
       }
     } finally {
       setLoading(false);

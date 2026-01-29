@@ -53,19 +53,15 @@ interface Poll {
 }
 
 interface Notice {
-  id: string;
+  id: number;
   title: string;
-  date: string;
-  type: 'maintenance' | 'event' | 'system';
   content: string;
+  priority: 'low' | 'medium' | 'high';
+  created_at: string;
+  expiry_date?: string;
 }
 
-// Mock Notices (Keep static for now as user focus is Polls)
-const NOTICES: Notice[] = [
-  { id: '1', title: 'Pool Maintenance', date: 'Today, 10:00 AM', type: 'maintenance', content: 'The main swimming pool will be closed for scheduled maintenance until 2 PM.' },
-  { id: '2', title: 'Community BBQ', date: 'Sat, 15 Jun', type: 'event', content: 'Join us for the annual summer BBQ at the clubhouse!' },
-  { id: '3', title: 'Gate System Update', date: 'Yesterday', type: 'system', content: 'The main gate access system has been updated. Please use the new app version.' },
-];
+const priorityColor = (p: Notice['priority']) => p === 'high' ? '#ef4444' : p === 'medium' ? '#f59e0b' : '#10b981';
 
 const DURATIONS = [
     { label: 'Manual Close', value: 0 },
@@ -82,6 +78,7 @@ export default function CommunityScreen({ navigation, route }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [notices, setNotices] = useState<Notice[]>([]);
   
   // Create Poll State
   const [newQuestion, setNewQuestion] = useState('');
@@ -91,6 +88,7 @@ export default function CommunityScreen({ navigation, route }: any) {
 
   useEffect(() => {
     fetchPolls();
+    fetchNotices();
   }, []);
 
   const fetchPolls = async () => {
@@ -225,6 +223,29 @@ export default function CommunityScreen({ navigation, route }: any) {
             } catch (e) { console.error(e); }
         }}
     ]);
+  };
+
+  const fetchNotices = async () => {
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.NOTICES}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const formatted: Notice[] = data.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          content: n.content,
+          priority: n.priority,
+          created_at: n.created_at,
+          expiry_date: n.expiry_date,
+        }));
+        setNotices(formatted);
+      }
+    } catch (e) {
+      console.error('Error fetching notices:', e);
+    }
   };
 
   const addOptionField = () => {
@@ -368,21 +389,21 @@ export default function CommunityScreen({ navigation, route }: any) {
 
           <Text style={styles.sectionTitle}>Notices & Announcements</Text>
           <View style={styles.list}>
-            {NOTICES.map((notice) => {
+            {notices.map((notice: Notice) => {
               const Container = Platform.OS === 'ios' ? BlurView : View;
               const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
               
               return (
                 <Container key={notice.id} {...containerProps} style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
                   <View style={styles.cardHeader}>
-                    <View style={styles.iconContainer}>
-                      {notice.type === 'event' ? <Calendar color="#f59e0b" size={20} /> : 
-                       notice.type === 'maintenance' ? <MessageSquare color="#ef4444" size={20} /> :
-                       <MessageSquare color="#3b82f6" size={20} />}
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                      <MessageSquare color={priorityColor(notice.priority)} size={20} />
                     </View>
                     <View style={styles.headerText}>
                       <Text style={styles.cardTitle}>{notice.title}</Text>
-                      <Text style={styles.cardDate}>{notice.date}</Text>
+                      <Text style={styles.cardDate}>
+                        {new Date(notice.created_at).toLocaleString()}
+                      </Text>
                     </View>
                   </View>
                   <Text style={styles.cardContent}>{notice.content}</Text>
