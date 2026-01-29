@@ -42,10 +42,7 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
     try {
       setLoading(true);
       const token = await Storage.getToken();
-      const status = activeTab === 'Open' ? 'open' : 'closed';
-      // Adjust query param based on your backend API filtering capability
-      // Assuming GET /tickets/?status=open
-      const response = await fetch(`${API_URL}${ENDPOINTS.TICKETS}?status=${status}`, {
+      const response = await fetch(`${API_URL}${ENDPOINTS.TICKETS}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
@@ -131,22 +128,22 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
       <Container {...containerProps} style={[styles.requestCard, Platform.OS === 'android' && styles.androidCard]}>
         <View style={styles.requestHeader}>
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{item.category}</Text>
+            <Text style={styles.categoryBadgeText}>{(item.category || 'other')?.toString().toUpperCase()}</Text>
           </View>
           <Text style={[
             styles.statusText,
-            { color: item.status === 'Completed' ? '#10b981' : item.status === 'In Progress' ? '#3b82f6' : '#f59e0b' }
-          ]}>{item.status}</Text>
+            { color: item.status === 'closed' ? '#10b981' : item.status === 'in_progress' ? '#3b82f6' : '#f59e0b' }
+          ]}>{(item.status || 'open')?.toString().toUpperCase()}</Text>
         </View>
         <Text style={styles.requestTitle}>{item.title}</Text>
         <Text style={styles.requestDesc} numberOfLines={2}>{item.description}</Text>
         <View style={styles.requestFooter}>
           <View style={styles.footerItem}>
-            <Text style={styles.footerText}>Unit {item.unit}</Text>
+            <Text style={styles.footerText}>Location: {item.location || '-'}</Text>
           </View>
           <View style={styles.footerItem}>
             <Clock size={12} color="#94a3b8" />
-            <Text style={styles.footerText}>{item.date}</Text>
+            <Text style={styles.footerText}>{new Date(item.created_at).toLocaleString()}</Text>
           </View>
         </View>
       </Container>
@@ -187,9 +184,9 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
           </View>
 
           <FlatList
-            data={MOCK_REQUESTS}
+            data={requests.filter(r => (activeTab === 'Open' ? r.status !== 'closed' : r.status === 'closed'))}
             renderItem={renderAdminItem}
-            keyExtractor={item => item.id}
+            keyExtractor={item => item.id?.toString?.() || String(item.id)}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
