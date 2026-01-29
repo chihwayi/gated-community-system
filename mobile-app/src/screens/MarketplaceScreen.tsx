@@ -10,6 +10,7 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -58,6 +59,42 @@ export default function MarketplaceScreen({ route, navigation }: any) {
     }
   };
 
+  const handleDeleteListing = async (id: number) => {
+    Alert.alert(
+      'Remove Listing',
+      'Are you sure you want to remove this listing?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const token = await Storage.getToken();
+              const response = await fetch(`${API_URL}${ENDPOINTS.MARKETPLACE}${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+              });
+
+              if (response.ok) {
+                Toast.show({ type: 'success', text1: 'Listing Removed' });
+                fetchListings();
+              } else {
+                Toast.show({ type: 'error', text1: 'Failed to remove listing' });
+              }
+            } catch (e) {
+              console.error(e);
+              Toast.show({ type: 'error', text1: 'Error removing listing' });
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderItem = ({ item }: any) => {
     const Container = Platform.OS === 'ios' ? BlurView : View;
     const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
@@ -90,11 +127,11 @@ export default function MarketplaceScreen({ route, navigation }: any) {
           {/* Admin Actions */}
           {isAdmin && (
           <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.actionBtn}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => Toast.show({ type: 'info', text1: 'Edit not implemented' })}>
                   <Edit2 size={16} color="#3b82f6" />
                   <Text style={styles.actionText}>Edit</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => handleDeleteListing(item.id)}>
                   <Trash2 size={16} color="#ef4444" />
                   <Text style={[styles.actionText, { color: '#ef4444' }]}>Remove</Text>
               </TouchableOpacity>

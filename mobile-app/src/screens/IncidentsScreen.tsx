@@ -16,15 +16,23 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { BlurView } from 'expo-blur';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
+import Toast from 'react-native-toast-message';
 
 export default function IncidentsScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [incidents, setIncidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPrivileged, setIsPrivileged] = useState(false);
 
   useEffect(() => {
+    checkRole();
     fetchIncidents();
   }, []);
+
+  const checkRole = async () => {
+    const user = await Storage.getUser();
+    setIsPrivileged(user?.role === 'admin' || user?.role === 'guard');
+  };
 
   const fetchIncidents = async () => {
     try {
@@ -40,6 +48,31 @@ export default function IncidentsScreen({ navigation }: any) {
       console.error('Error fetching incidents:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateStatus = async (id: number, status: 'resolved' | 'false_alarm') => {
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.INCIDENTS}${id}/status?status=${status}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to update incident');
+      }
+      Toast.show({
+        type: 'success',
+        text1: status === 'resolved' ? 'Incident Resolved' : 'Marked as False Alarm',
+      });
+      fetchIncidents();
+    } catch (e: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: e.message,
+      });
     }
   };
 
@@ -74,6 +107,16 @@ export default function IncidentsScreen({ navigation }: any) {
           <Text style={styles.detailText}>{item.time}</Text>
         </View>
       </View>
+      {isPrivileged && item.status?.toLowerCase?.() === 'open' && (
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={styles.resolveBtn} onPress={() => updateStatus(item.id, 'resolved')}>
+            <Text style={styles.resolveBtnText}>RESOLVE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.falseBtn} onPress={() => updateStatus(item.id, 'false_alarm')}>
+            <Text style={styles.falseBtnText}>FALSE ALARM</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       </Container>
     );
   };
@@ -201,5 +244,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     marginLeft: 4,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: SPACING.md,
+  },
+  resolveBtn: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  resolveBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  falseBtn: {
+    flex: 1,
+    backgroundColor: '#f59e0b',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  falseBtnText: {
+    color: '#0f172a',
+    fontWeight: 'bold',
   },
 });

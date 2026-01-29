@@ -7,31 +7,56 @@ import {
   TouchableOpacity,
   Dimensions,
   Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import {
   ChevronLeft,
   Calendar,
   Clock,
   MapPin,
   Plus,
-  Info
+  Info,
+  X,
+  Check
 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
 import { getImageUrl } from '../utils/image';
+import Toast from 'react-native-toast-message';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function AmenitiesScreen({ navigation }: any) {
   const [amenities, setAmenities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Form State
+  const [newName, setNewName] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newCapacity, setNewCapacity] = useState('');
+  const [newHours, setNewHours] = useState('');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
+    checkAdminStatus();
     fetchAmenities();
   }, []);
+
+  const checkAdminStatus = async () => {
+    const user = await Storage.getUser();
+    setIsAdmin(user?.role === 'admin');
+  };
 
   const fetchAmenities = async () => {
     try {
@@ -46,6 +71,7 @@ export default function AmenitiesScreen({ navigation }: any) {
       const formatted = data.map((a: any) => ({
         id: a.id?.toString(),
         name: a.name,
+        description: a.description,
         status: a.status, // available | maintenance | closed
         hours: a.open_hours || '—',
         capacity: a.capacity?.toString() || '—',
@@ -56,6 +82,62 @@ export default function AmenitiesScreen({ navigation }: any) {
       console.error('Amenities fetch error:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateAmenity = async () => {
+    if (!newName) {
+      Toast.show({
+        type: 'error',
+        text1: 'Missing Information',
+        text2: 'Please enter an amenity name',
+      });
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.AMENITIES}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newName,
+          description: newDescription,
+          capacity: newCapacity ? parseInt(newCapacity) : null,
+          open_hours: newHours,
+          status: 'available',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create amenity');
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: 'Amenity Created',
+        text2: `${newName} has been added successfully`,
+      });
+
+      setModalVisible(false);
+      setNewName('');
+      setNewDescription('');
+      setNewCapacity('');
+      setNewHours('');
+      fetchAmenities();
+    } catch (e: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Creation Failed',
+        text2: e.message,
+      });
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -96,6 +178,9 @@ export default function AmenitiesScreen({ navigation }: any) {
     </TouchableOpacity>
   );
 
+  const BlurContainer = Platform.OS === 'ios' ? BlurView : View;
+  const blurProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -108,9 +193,16 @@ export default function AmenitiesScreen({ navigation }: any) {
             <ChevronLeft color="#fff" size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Amenities</Text>
-          <TouchableOpacity style={styles.addButton}>
-            <Plus color="#fff" size={24} />
-          </TouchableOpacity>
+          {isAdmin ? (
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={() => setModalVisible(true)}
+            >
+              <Plus color="#fff" size={24} />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
         </View>
 
         <FlatList
@@ -120,6 +212,103 @@ export default function AmenitiesScreen({ navigation }: any) {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
+
+        {/* Add Amenity Modal */}
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <BlurContainer {...blurProps} style={[styles.modalBlur, Platform.OS === 'android' && styles.androidModal]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Add Amenity</Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <X color="#94a3b8" size={24} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.formScroll}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Swimming Pool"
+                      placeholderTextColor="#64748b"
+                      value={newName}
+                      onChangeText={setNewName}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Description</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      placeholder="Brief description..."
+                      placeholderTextColor="#64748b"
+                      multiline
+                      numberOfLines={3}
+                      value={newDescription}
+                      onChangeText={setNewDescription}
+                    />
+                  </View>
+
+                  <View style={styles.row}>
+                    <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                      <Text style={styles.label}>Capacity</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. 50"
+                        placeholderTextColor="#64748b"
+                        keyboardType="numeric"
+                        value={newCapacity}
+                        onChangeText={setNewCapacity}
+                      />
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                      <Text style={styles.label}>Open Hours</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g. 8am - 10pm"
+                        placeholderTextColor="#64748b"
+                        value={newHours}
+                        onChangeText={setNewHours}
+                      />
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.submitButton}
+                    onPress={handleCreateAmenity}
+                    disabled={creating}
+                  >
+                    <LinearGradient
+                      colors={['#0891b2', '#06b6d4']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.submitGradient}
+                    >
+                      {creating ? (
+                         <Text style={styles.submitText}>Creating...</Text>
+                      ) : (
+                        <>
+                          <Text style={styles.submitText}>Create Amenity</Text>
+                          <Check color="#fff" size={20} />
+                        </>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </ScrollView>
+              </BlurContainer>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
       </SafeAreaView>
     </View>
   );
@@ -225,5 +414,82 @@ const styles = StyleSheet.create({
   detailText: {
     color: '#e2e8f0',
     fontSize: 14,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    height: height * 0.7,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  modalBlur: {
+    flex: 1,
+    padding: SPACING.l,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+  },
+  androidModal: {
+    backgroundColor: '#1e293b',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  formScroll: {
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: SPACING.l,
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: SPACING.l,
+  },
+  label: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 16,
+    color: '#fff',
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  submitButton: {
+    marginTop: SPACING.m,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 40,
+  },
+  submitGradient: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  submitText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

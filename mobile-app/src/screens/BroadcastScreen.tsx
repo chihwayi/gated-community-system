@@ -8,20 +8,24 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Radio, Send, Users, Shield } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { COLORS, SPACING } from '../constants/theme';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
 
 export default function BroadcastScreen({ navigation }: any) {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [target, setTarget] = useState('all');
+  const [priority, setPriority] = useState('medium');
   const [loading, setLoading] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!title || !message) {
       Toast.show({
         type: 'error',
@@ -32,21 +36,49 @@ export default function BroadcastScreen({ navigation }: any) {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Broadcast Sent',
-        text2: `Message sent to ${target === 'all' ? 'All Residents' : target === 'staff' ? 'Staff' : 'Security'}.`,
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.NOTICES}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title,
+          content: message,
+          priority: priority,
+          // target is currently handled by backend broadcasting to all, 
+          // but we can extend this if the API supports specific targets
+        }),
       });
-      navigation.goBack();
-    }, 1500);
+
+      if (response.ok) {
+        Toast.show({
+          type: 'success',
+          text1: 'Broadcast Sent',
+          text2: 'Your announcement has been published.',
+        });
+        navigation.goBack();
+      } else {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to send broadcast');
+      }
+    } catch (e: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Send Failed',
+        text2: e.message,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const targets = [
-    { id: 'all', label: 'All Residents', icon: Users },
-    { id: 'security', label: 'Security Team', icon: Shield },
-    { id: 'staff', label: 'Staff', icon: Users },
+    { id: 'all', label: 'All Residents', icon: Users, priority: 'medium' },
+    { id: 'security', label: 'Security (High)', icon: Shield, priority: 'high' },
+    { id: 'staff', label: 'Staff (Low)', icon: Users, priority: 'low' },
   ];
 
   return (
@@ -87,7 +119,10 @@ export default function BroadcastScreen({ navigation }: any) {
                             styles.targetCard,
                             target === t.id && styles.targetCardActive
                         ]}
-                        onPress={() => setTarget(t.id)}
+                        onPress={() => {
+                            setTarget(t.id);
+                            setPriority(t.priority);
+                        }}
                     >
                         <t.icon color={target === t.id ? '#f59e0b' : '#94a3b8'} size={24} />
                         <Text style={[

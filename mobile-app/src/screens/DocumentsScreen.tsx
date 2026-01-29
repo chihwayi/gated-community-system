@@ -7,6 +7,12 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,8 +23,14 @@ import {
   Folder,
   Download,
   MoreVertical,
-  Search
+  Search,
+  Plus,
+  X,
+  Upload,
+  FileUp,
 } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import Toast from 'react-native-toast-message';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
@@ -38,10 +50,25 @@ type DocumentItem = {
 export default function DocumentsScreen({ navigation }: any) {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Upload Modal State
+  const [modalVisible, setModalVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newCategory, setNewCategory] = useState('general');
+  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   useEffect(() => {
+    checkAdminStatus();
     fetchDocuments();
   }, []);
+
+  const checkAdminStatus = async () => {
+    const user = await Storage.getUser();
+    setIsAdmin(user?.role === 'admin' || user?.role === 'super_admin');
+  };
 
   const fetchDocuments = async () => {
     try {
@@ -66,6 +93,124 @@ export default function DocumentsScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      setSelectedFile(result.assets[0]);
+    } catch (e) {
+      console.error('Pick document error:', e);
+      Toast.show({
+        type: 'error',
+        text1: 'Selection Failed',
+        text2: 'Could not select document',
+      });
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!newTitle) {
+      Toast.show({
+        type: 'error',
+        text1: 'Missing Information',
+        text2: 'Please enter a document title',
+      });
+      return;
+    }
+
+    if (!selectedFile) {
+      Toast.show({
+        type: 'error',
+        text1: 'Missing File',
+        text2: 'Please select a document to upload',
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const token = await Storage.getToken();
+
+      // 1. Upload File
+      const formData = new FormData();
+      formData.append('file', {
+        uri: selectedFile.uri,
+        name: selectedFile.name,
+        type: selectedFile.mimeType || 'application/octet-stream',
+      } as any);
+
+      const uploadResponse = await fetch(`${API_URL}/api/v1/upload/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`File upload failed: ${errorText}`);
+      }
+
+      const uploadData = await uploadResponse.json();
+      const fileUrl = uploadData.url;
+
+      // 2. Create Document Record
+      const docResponse = await fetch(`${API_URL}${ENDPOINTS.DOCUMENTS}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: newTitle,
+          description: newDescription,
+          category: newCategory,
+          file_url: fileUrl,
+        }),
+      });
+
+      if (!docResponse.ok) {
+        const errorData = await docResponse.json();
+        throw new Error(errorData.detail || 'Failed to create document record');
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: 'Document Uploaded',
+        text2: `${newTitle} has been uploaded successfully`,
+      });
+
+      setModalVisible(false);
+      resetForm();
+      fetchDocuments();
+
+    } catch (e: any) {
+      console.error('Upload error:', e);
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Failed',
+        text2: e.message,
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setNewTitle('');
+    setNewDescription('');
+    setNewCategory('general');
+    setSelectedFile(null);
   };
 
   const renderItem = ({ item }: any) => {
@@ -110,9 +255,16 @@ export default function DocumentsScreen({ navigation }: any) {
             <ChevronLeft color={COLORS.textPrimary} size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Documents</Text>
-          <TouchableOpacity style={styles.searchButton}>
-            <Search color={COLORS.textPrimary} size={24} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {isAdmin && (
+              <TouchableOpacity style={styles.searchButton} onPress={() => setModalVisible(true)}>
+                <Plus color={COLORS.textPrimary} size={24} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.searchButton}>
+              <Search color={COLORS.textPrimary} size={24} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.statsContainer}>
@@ -148,6 +300,76 @@ export default function DocumentsScreen({ navigation }: any) {
             }
           />
         )}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Upload Document</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <X color={COLORS.textSecondary} size={24} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalForm}>
+                <Text style={styles.inputLabel}>Title</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Document Title"
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={newTitle}
+                  onChangeText={setNewTitle}
+                />
+                <Text style={styles.inputLabel}>Description</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Optional description..."
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={newDescription}
+                  onChangeText={setNewDescription}
+                  multiline
+                  numberOfLines={3}
+                />
+                <Text style={styles.inputLabel}>File</Text>
+                <TouchableOpacity
+                  style={styles.filePickerButton}
+                  onPress={handlePickDocument}
+                >
+                  {selectedFile ? (
+                    <View style={styles.selectedFileContainer}>
+                      <FileUp color={COLORS.primary} size={24} />
+                      <Text style={styles.selectedFileName} numberOfLines={1}>
+                        {selectedFile.name}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.uploadPlaceholder}>
+                      <Upload color={COLORS.textSecondary} size={24} />
+                      <Text style={styles.uploadPlaceholderText}>Select File</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitButton, uploading && styles.disabledButton]}
+                  onPress={handleUpload}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Upload Document</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -255,5 +477,94 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: SPACING.xl,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    padding: SPACING.l,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.l,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+  },
+  modalForm: {
+    marginBottom: SPACING.xl,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.s,
+    marginTop: SPACING.m,
+  },
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: BORDER_RADIUS.m,
+    padding: SPACING.m,
+    color: COLORS.textPrimary,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  filePickerButton: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: BORDER_RADIUS.m,
+    padding: SPACING.l,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadPlaceholder: {
+    alignItems: 'center',
+    gap: SPACING.s,
+  },
+  uploadPlaceholderText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  selectedFileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.m,
+  },
+  selectedFileName: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: 200,
+  },
+  submitButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.m,
+    padding: SPACING.m,
+    alignItems: 'center',
+    marginTop: SPACING.xl,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
