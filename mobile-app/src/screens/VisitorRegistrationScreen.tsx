@@ -16,12 +16,15 @@ import { ChevronLeft, Check, Share2, Copy } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import Toast from 'react-native-toast-message';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
 
 const { width } = Dimensions.get('window');
 
 export default function VisitorRegistrationScreen({ navigation }: any) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [createdVisitor, setCreatedVisitor] = useState<any | null>(null);
   const [visitorData, setVisitorData] = useState({
     name: '',
     phone: '',
@@ -43,16 +46,45 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
       setStep(2);
     } else if (step === 2) {
       setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        setLoading(false);
-        setStep(3);
-        Toast.show({
+      (async () => {
+        try {
+          const token = await Storage.getToken();
+          const payload = {
+            full_name: visitorData.name,
+            phone_number: visitorData.phone,
+            purpose: visitorData.purpose,
+            expected_arrival: new Date(visitorData.date).toISOString(),
+          };
+          const response = await fetch(`${API_URL}${ENDPOINTS.VISITORS}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to register visitor');
+          }
+          const data = await response.json();
+          setCreatedVisitor(data);
+          setStep(3);
+          Toast.show({
             type: 'success',
             text1: 'Visitor Registered',
-            text2: 'QR Code generated successfully',
-        });
-      }, 1500);
+            text2: 'Access code generated',
+          });
+        } catch (e: any) {
+          Toast.show({
+            type: 'error',
+            text1: 'Registration Failed',
+            text2: e?.message || 'Please try again',
+          });
+        } finally {
+          setLoading(false);
+        }
+      })();
     }
   };
 
@@ -173,7 +205,7 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
             
             <View style={styles.qrWrapper}>
                 <QRCode
-                    value={JSON.stringify(visitorData)}
+                    value={createdVisitor?.access_code ? createdVisitor.access_code : JSON.stringify(visitorData)}
                     size={200}
                     color="black"
                     backgroundColor="white"
@@ -206,7 +238,7 @@ export default function VisitorRegistrationScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       <SafeAreaView style={styles.safeArea}>
@@ -290,14 +322,11 @@ const styles = StyleSheet.create({
   stepWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   stepItem: {
     alignItems: 'center',
@@ -312,8 +341,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   stepActive: {
-    backgroundColor: '#667eea', // Purple matching gradient start
-    shadowColor: '#667eea',
+    backgroundColor: '#3b82f6', // Blue matching dark theme
+    shadowColor: '#3b82f6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -323,12 +352,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b981', // Emerald
   },
   stepPending: {
-    backgroundColor: '#e5e7eb', // Gray
+    backgroundColor: 'rgba(255,255,255,0.1)', // Gray
   },
   stepText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#9ca3af',
+    color: '#94a3b8',
   },
   stepTextActive: {
     color: '#fff',
@@ -338,39 +367,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   labelActive: {
-    color: '#667eea',
+    color: '#3b82f6',
   },
   labelPending: {
-    color: '#9ca3af',
+    color: '#94a3b8',
   },
   stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     marginBottom: 20, // Align with circle center (approx)
     marginHorizontal: 8,
   },
   stepLineActive: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#3b82f6',
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 100,
   },
   formContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#fff',
     marginBottom: 20,
   },
   inputGroup: {
@@ -379,18 +405,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#94a3b8',
     marginBottom: 8,
     textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     padding: 16,
     fontSize: 16,
-    color: '#111827',
+    color: '#fff',
   },
   footer: {
     position: 'absolute',
@@ -398,16 +424,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 24,
-    backgroundColor: '#fff', // Or transparent/blur
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
   },
   nextButton: {
-    backgroundColor: '#667eea', // Use primary gradient color
+    backgroundColor: '#3b82f6', // Use primary gradient color
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#667eea',
+    shadowColor: '#3b82f6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -419,9 +444,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   reviewContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 24,
     padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   reviewCard: {
     gap: 16,
@@ -432,36 +459,36 @@ const styles = StyleSheet.create({
   reviewLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#94a3b8',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   reviewValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: '#fff',
   },
   tagPurpose: {
-    backgroundColor: '#ede9fe',
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
   tagTextPurpose: {
-    color: '#7c3aed',
+    color: '#a78bfa',
     fontWeight: '600',
     fontSize: 14,
   },
   tagDate: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
   tagTextDate: {
-    color: '#1e40af',
+    color: '#60a5fa',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -469,27 +496,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qrCard: {
-    backgroundColor: '#fff',
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
     marginBottom: 24,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   qrTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#fff',
     marginBottom: 8,
   },
   qrSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#94a3b8',
     marginBottom: 24,
   },
   qrWrapper: {
@@ -504,12 +532,12 @@ const styles = StyleSheet.create({
   visitorNameDisplay: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#fff',
     marginBottom: 4,
   },
   validityText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#94a3b8',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -522,17 +550,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     paddingVertical: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(255,255,255,0.1)',
     gap: 8,
   },
   actionBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#fff',
   },
   homeBtn: {
     width: '100%',

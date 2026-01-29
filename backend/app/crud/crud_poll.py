@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from sqlalchemy.orm import Session
 from app.models.all_models import Poll, PollOption, PollVote, PollStatus
 from app.schemas import poll as schemas
@@ -30,6 +31,14 @@ def get_polls(db: Session, tenant_id: int, skip: int = 0, limit: int = 100, user
     if user_id:
         # Check if user has voted for each poll
         for poll in polls:
+            # Lazy expiration check
+            if poll.status == PollStatus.OPEN and poll.end_date and poll.end_date < datetime.now(poll.end_date.tzinfo):
+                poll.status = PollStatus.CLOSED
+                db.add(poll)
+                # We commit later or let the next operation handle it? 
+                # Better to commit now to persist the state change.
+                db.commit() 
+            
             vote = db.query(PollVote).filter(PollVote.poll_id == poll.id, PollVote.user_id == user_id).first()
             poll.user_has_voted = vote is not None
             
@@ -69,4 +78,18 @@ def delete_poll(db: Session, poll_id: int, tenant_id: int) -> Optional[Poll]:
     if poll:
         db.delete(poll)
         db.commit()
+    return poll
+
+def update_poll(db: Session, poll_id: int, poll_in: schemas.PollUpdate, tenant_id: int) -> Optional[Poll]:
+    poll = db.query(Poll).filter(Poll.id == poll_id, Poll.tenant_id == tenant_id).first()
+    if not poll:
+        return None
+    
+    update_data = poll_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(poll, field, value)
+
+    db.add(poll)
+    db.commit()
+    db.refresh(poll)
     return poll

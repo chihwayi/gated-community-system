@@ -52,6 +52,22 @@ def vote_poll(
     poll.user_has_voted = True
     return poll
 
+@router.put("/{poll_id}", response_model=schemas.Poll)
+def update_poll(
+    poll_id: int,
+    poll_in: schemas.PollUpdate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_admin)
+) -> Any:
+    """Update a poll (e.g. close it). (Admin only)"""
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to a tenant")
+
+    poll = crud_poll.update_poll(db=db, poll_id=poll_id, poll_in=poll_in, tenant_id=current_user.tenant_id)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    return poll
+
 @router.delete("/{poll_id}", response_model=schemas.Poll)
 def delete_poll(
     poll_id: int,

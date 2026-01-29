@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -88,12 +88,12 @@ const CameraFeed = ({
           </View>
           
           <View style={styles.feedOverlay}>
-            <BlurView intensity={20} tint="dark" style={styles.overlayTag}>
+            <View style={styles.overlayTag}>
               <Text style={styles.overlayText}>{camId}</Text>
-            </BlurView>
-            <BlurView intensity={20} tint="dark" style={styles.overlayTag}>
+            </View>
+            <View style={styles.overlayTag}>
               <Text style={styles.overlayText}>{new Date().toLocaleTimeString('en-US', { hour12: false })}</Text>
-            </BlurView>
+            </View>
           </View>
         </LinearGradient>
 
@@ -186,12 +186,20 @@ const VehicleCard = ({ plate, model, owner, house, type }: { plate: string; mode
 );
 
 export default function GuardDashboard() {
+  const Container = Platform.OS === 'ios' ? BlurView : View;
+  const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0f172a', '#1e293b']}
+        style={styles.background}
+      />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Header */}
-        <BlurView intensity={20} tint="dark" style={styles.header}>
+        <Container {...containerProps} style={[styles.header, Platform.OS === 'android' && styles.androidCard]}>
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.headerTitle}>GATE MONITORING</Text>
@@ -209,7 +217,7 @@ export default function GuardDashboard() {
               <Text style={styles.settingsText}>SETTINGS</Text>
             </TouchableOpacity>
           </View>
-        </BlurView>
+        </Container>
 
         {/* Camera Feeds */}
         <View style={styles.section}>
@@ -280,13 +288,32 @@ export default function GuardDashboard() {
 
       </ScrollView>
     </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#0f172a',
+  },
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+  },
+  androidOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  safeArea: {
+    flex: 1,
   },
   scrollContent: {
     padding: SPACING.m,
@@ -453,6 +480,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.s,
     overflow: 'hidden',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
   },
   overlayText: {
     color: COLORS.primary,

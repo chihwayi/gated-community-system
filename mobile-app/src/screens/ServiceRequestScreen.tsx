@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,14 +16,10 @@ import { BlurView } from 'expo-blur';
 import { ArrowLeft, Wrench, Send, Camera, Filter, ChevronRight, CheckCircle, Clock } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { API_URL, ENDPOINTS } from '../config/api';
+import { Storage } from '../utils/storage';
 
-// Mock Data for Admin Mode
-const MOCK_REQUESTS = [
-  { id: '1', title: 'Leaking Faucet', category: 'Plumbing', unit: 'A-101', status: 'Pending', date: '2 hrs ago', description: 'Kitchen sink is leaking constantly.' },
-  { id: '2', title: 'AC Not Cooling', category: 'Appliance', unit: 'B-205', status: 'In Progress', date: '5 hrs ago', description: 'Master bedroom AC is blowing warm air.' },
-  { id: '3', title: 'Flickering Light', category: 'Electrical', unit: 'C-304', status: 'Completed', date: 'Yesterday', description: 'Hallway light keeps flickering.' },
-  { id: '4', title: 'Broken Tile', category: 'Other', unit: 'A-102', status: 'Pending', date: 'Yesterday', description: 'Bathroom tile cracked.' },
-];
+const Container = Platform.OS === 'ios' ? BlurView : View;
 
 export default function ServiceRequestScreen({ navigation, route }: any) {
   const { mode } = route.params || {};
@@ -33,6 +29,38 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('Open'); // For Admin: Open, Closed
+  const [requests, setRequests] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchRequests();
+    }
+  }, [isAdmin, activeTab]);
+
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.TICKETS}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRequests(data);
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to fetch service requests',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!description.trim()) {
@@ -45,16 +73,43 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
     }
 
     setLoading(true);
-    // Mock API call
-    setTimeout(() => {
-      setLoading(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Request Submitted',
-        text2: 'Maintenance team has been notified.',
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.TICKETS}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: `${categories.find(c => c.id === category)?.label} Issue`,
+          description,
+          category,
+          priority: 'medium', // Default
+          status: 'open'
+        }),
       });
-      navigation.goBack();
-    }, 1500);
+
+      if (response.ok) {
+        Toast.show({
+          type: 'success',
+          text1: 'Request Submitted',
+          text2: 'Maintenance team has been notified.',
+        });
+        navigation.goBack();
+      } else {
+        throw new Error('Failed to submit ticket');
+      }
+    } catch (error) {
+      console.error('Error submitting ticket:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Submission Failed',
+        text2: 'Please try again later.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const categories = [
@@ -64,30 +119,37 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
     { id: 'other', label: 'Other' },
   ];
 
-  const renderAdminItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.requestCard}>
-      <View style={styles.requestHeader}>
-        <View style={styles.categoryBadge}>
-          <Text style={styles.categoryBadgeText}>{item.category}</Text>
+  const renderAdminItem = ({ item }: any) => {
+    const Container = Platform.OS === 'ios' ? BlurView : View;
+    const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
+    
+    return (
+    <TouchableOpacity onPress={() => {}} activeOpacity={0.8}>
+      <Container {...containerProps} style={[styles.requestCard, Platform.OS === 'android' && styles.androidCard]}>
+        <View style={styles.requestHeader}>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryBadgeText}>{(item.category || 'other')?.toString().toUpperCase()}</Text>
+          </View>
+          <Text style={[
+            styles.statusText,
+            { color: item.status === 'closed' ? '#10b981' : item.status === 'in_progress' ? '#3b82f6' : '#f59e0b' }
+          ]}>{(item.status || 'open')?.toString().toUpperCase()}</Text>
         </View>
-        <Text style={[
-          styles.statusText,
-          { color: item.status === 'Completed' ? '#10b981' : item.status === 'In Progress' ? '#3b82f6' : '#f59e0b' }
-        ]}>{item.status}</Text>
-      </View>
-      <Text style={styles.requestTitle}>{item.title}</Text>
-      <Text style={styles.requestDesc} numberOfLines={2}>{item.description}</Text>
-      <View style={styles.requestFooter}>
-        <View style={styles.footerItem}>
-          <Text style={styles.footerText}>Unit {item.unit}</Text>
+        <Text style={styles.requestTitle}>{item.title}</Text>
+        <Text style={styles.requestDesc} numberOfLines={2}>{item.description}</Text>
+        <View style={styles.requestFooter}>
+          <View style={styles.footerItem}>
+            <Text style={styles.footerText}>Location: {item.location || '-'}</Text>
+          </View>
+          <View style={styles.footerItem}>
+            <Clock size={12} color="#94a3b8" />
+            <Text style={styles.footerText}>{new Date(item.created_at).toLocaleString()}</Text>
+          </View>
         </View>
-        <View style={styles.footerItem}>
-          <Clock size={12} color="#94a3b8" />
-          <Text style={styles.footerText}>{item.date}</Text>
-        </View>
-      </View>
+      </Container>
     </TouchableOpacity>
-  );
+    );
+  };
 
   if (isAdmin) {
     return (
@@ -122,9 +184,9 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
           </View>
 
           <FlatList
-            data={MOCK_REQUESTS}
+            data={requests.filter(r => (activeTab === 'Open' ? r.status !== 'closed' : r.status === 'closed'))}
             renderItem={renderAdminItem}
-            keyExtractor={item => item.id}
+            keyExtractor={item => item.id?.toString?.() || String(item.id)}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
@@ -136,7 +198,7 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#1a1a2e', '#16213e']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       
@@ -181,7 +243,10 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
             </View>
 
             <Text style={styles.label}>Description</Text>
-            <BlurView intensity={20} tint="dark" style={styles.inputContainer}>
+            <Container 
+                {...(Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {})} 
+                style={[styles.inputContainer, Platform.OS === 'android' && styles.androidCard]}
+            >
                 <TextInput
                 style={styles.input}
                 placeholder="Describe the issue in detail..."
@@ -192,7 +257,7 @@ export default function ServiceRequestScreen({ navigation, route }: any) {
                 onChangeText={setDescription}
                 textAlignVertical="top"
                 />
-            </BlurView>
+            </Container>
 
             <TouchableOpacity style={styles.attachBtn}>
                 <Camera color="#94a3b8" size={20} />
@@ -300,11 +365,11 @@ const styles = StyleSheet.create({
   },
   categoryChip: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   categoryChipActive: {
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
@@ -312,16 +377,17 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     color: '#94a3b8',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   categoryTextActive: {
-    color: '#3b82f6',
+    color: '#60a5fa',
+    fontWeight: '600',
   },
   inputContainer: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 16,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 24,
   },
   input: {
     padding: 16,
@@ -332,67 +398,79 @@ const styles = StyleSheet.create({
   attachBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderStyle: 'dashed',
     justifyContent: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    borderStyle: 'dashed',
+    marginBottom: 40,
   },
   attachText: {
     color: '#94a3b8',
     marginLeft: 8,
+    fontWeight: '500',
   },
   footer: {
     padding: SPACING.l,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   submitBtn: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   submitGradient: {
-    paddingVertical: 16,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 16,
   },
   submitText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   // Admin Styles
   filterButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   tabsContainer: {
     flexDirection: 'row',
-    padding: SPACING.m,
-    gap: 12,
+    paddingHorizontal: SPACING.l,
+    marginBottom: SPACING.m,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 12,
+    marginRight: 24,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
   activeTab: {
-    backgroundColor: '#3b82f6',
+    borderBottomColor: '#3b82f6',
   },
   tabText: {
     color: '#94a3b8',
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
   },
   activeTabText: {
-    color: '#fff',
+    color: '#3b82f6',
+    fontWeight: '600',
   },
   listContent: {
     padding: SPACING.l,
+    paddingTop: 0,
   },
   requestCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -402,23 +480,24 @@ const styles = StyleSheet.create({
   requestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   categoryBadge: {
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   categoryBadgeText: {
     color: '#60a5fa',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
+    textTransform: 'capitalize',
   },
   statusText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   requestTitle: {
     color: '#fff',
@@ -433,19 +512,21 @@ const styles = StyleSheet.create({
   },
   requestFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-    paddingTop: 12,
+    gap: 16,
   },
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   footerText: {
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 12,
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
   },
 });

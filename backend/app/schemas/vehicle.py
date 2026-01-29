@@ -3,6 +3,14 @@ from pydantic import BaseModel, validator
 from datetime import datetime
 from app.core.storage import storage
 
+class VehicleOwner(BaseModel):
+    full_name: Optional[str] = None
+    house_address: Optional[str] = None
+    phone_number: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
 class VehicleBase(BaseModel):
     license_plate: str
     make: Optional[str] = None
@@ -28,6 +36,7 @@ class Vehicle(VehicleBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     display_image_url: Optional[str] = None
+    owner: Optional[VehicleOwner] = None
 
     @validator("display_image_url", pre=True, always=True)
     def compute_display_image_url(cls, v, values):

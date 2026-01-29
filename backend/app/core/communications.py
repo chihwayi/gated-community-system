@@ -34,11 +34,35 @@ class CommunicationService:
         logger.info(f"[MOCK EMAIL] To: {email} | Subject: {subject} | Body: {body}")
         return True
 
-    def send_push_notification(self, user_id: int, title: str, body: str) -> bool:
+    def send_push_notification(self, token: str, title: str, body: str, data: Optional[dict] = None) -> bool:
         """
-        Send Push Notification (Mock)
+        Send Push Notification via Expo
         """
-        logger.info(f"[MOCK PUSH] User: {user_id} | Title: {title} | Body: {body}")
+        if not token:
+             logger.warning("No push token provided")
+             return False
+
+        try:
+            response = PushClient().publish(
+                PushMessage(to=token, title=title, body=body, data=data)
+            )
+        except PushServerError as exc:
+            logger.error(f"PushServerError: {exc.errors}")
+            return False
+        except (ConnectionError, HTTPError) as exc:
+            logger.error(f"ConnectionError/HTTPError: {exc}")
+            return False
+
+        try:
+            response.validate_response()
+        except DeviceNotRegisteredError:
+            logger.warning(f"DeviceNotRegisteredError: {token}")
+            return False
+        except PushTicketError as exc:
+            logger.error(f"PushTicketError: {exc.errors}")
+            return False
+        
+        logger.info(f"[PUSH SENT] Token: {token} | Title: {title}")
         return True
 
     def send_access_code(self, phone_number: str, access_code: str, visitor_name: str) -> bool:

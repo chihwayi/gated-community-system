@@ -2,7 +2,7 @@ from typing import List, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.api import deps
-from app.crud import crud_notification
+from app.crud import crud_notification, crud_user
 from app.schemas import notification as schemas
 from app.models.all_models import User
 from app.core.communications import communication_service
@@ -14,6 +14,7 @@ def send_test_notification(
     type: str,
     target: str,
     message: str,
+    db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_admin)
 ) -> Any:
     """
@@ -28,7 +29,11 @@ def send_test_notification(
         # Target assumed to be user_id for push
         try:
             user_id = int(target)
-            communication_service.send_push_notification(user_id, "Test Notification", message)
+            user = crud_user.get_user(db, user_id=user_id)
+            if not user:
+                 raise HTTPException(status_code=404, detail="User not found")
+            
+            communication_service.send_push_notification(user.push_token, "Test Notification", message)
         except ValueError:
              raise HTTPException(status_code=400, detail="Target must be user ID for push")
     else:

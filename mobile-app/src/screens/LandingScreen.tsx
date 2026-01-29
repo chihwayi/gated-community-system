@@ -7,14 +7,13 @@ import {
   TouchableOpacity, 
   ActivityIndicator, 
   Image,
-  SafeAreaView,
   StatusBar,
   TextInput,
   Dimensions,
   Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Building, ArrowRight, Search } from 'lucide-react-native';
 import { API_URL, ENDPOINTS } from '../config/api';
 import { Storage } from '../utils/storage';
@@ -63,11 +62,7 @@ export default function LandingScreen({ navigation }: any) {
       console.error(err);
       if (refresh) {
         setError('Could not load communities. Please check your connection.');
-        // Fallback data for demo
-        setTenants([
-          { id: 1, name: 'Sunrise Apartments', slug: 'sunrise', logo_url: null },
-          { id: 2, name: 'Golden Valley Estate', slug: 'golden-valley', logo_url: null },
-        ]);
+        setTenants([]);
       }
     } finally {
       setLoading(false);
@@ -188,7 +183,7 @@ export default function LandingScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#0f172a',
   },
   safeArea: {
     flex: 1,

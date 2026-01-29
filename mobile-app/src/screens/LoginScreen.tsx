@@ -25,6 +25,8 @@ const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ route, navigation }: any) {
   const { tenant } = route.params || {};
+  const Container = Platform.OS === 'ios' ? BlurView : View;
+  const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -180,7 +182,7 @@ export default function LoginScreen({ route, navigation }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#1a1a2e', '#16213e']}
+        colors={['#0f172a', '#1e293b']}
         style={styles.background}
       />
       
@@ -220,7 +222,7 @@ export default function LoginScreen({ route, navigation }: any) {
             <View style={styles.formContainer}>
               {isMfaStep ? (
                 <View style={styles.inputContainer}>
-                  <BlurView intensity={20} tint="dark" style={styles.inputBlur}>
+                  <Container {...containerProps} style={[styles.inputBlur, Platform.OS === 'android' && styles.androidCard]}>
                     <ShieldCheck color={COLORS.textSecondary} size={20} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
@@ -232,12 +234,12 @@ export default function LoginScreen({ route, navigation }: any) {
                       maxLength={6}
                       autoFocus
                     />
-                  </BlurView>
+                  </Container>
                 </View>
               ) : (
                 <>
                   <View style={styles.inputContainer}>
-                    <BlurView intensity={20} tint="dark" style={styles.inputBlur}>
+                    <Container {...containerProps} style={[styles.inputBlur, Platform.OS === 'android' && styles.androidCard]}>
                       <Mail color={COLORS.textSecondary} size={20} style={styles.inputIcon} />
                       <TextInput
                         style={styles.input}
@@ -248,11 +250,11 @@ export default function LoginScreen({ route, navigation }: any) {
                         keyboardType="email-address"
                         autoCapitalize="none"
                       />
-                    </BlurView>
+                    </Container>
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <BlurView intensity={20} tint="dark" style={styles.inputBlur}>
+                    <Container {...containerProps} style={[styles.inputBlur, Platform.OS === 'android' && styles.androidCard]}>
                       <Lock color={COLORS.textSecondary} size={20} style={styles.inputIcon} />
                       <TextInput
                         style={styles.input}
@@ -262,7 +264,7 @@ export default function LoginScreen({ route, navigation }: any) {
                         onChangeText={setPassword}
                         secureTextEntry
                       />
-                    </BlurView>
+                    </Container>
                   </View>
 
                   <TouchableOpacity style={styles.forgotPassword}>
@@ -391,6 +393,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING.m,
     backgroundColor: 'rgba(30, 41, 59, 0.7)',
+  },
+  androidCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   inputIcon: {
     marginRight: SPACING.m,

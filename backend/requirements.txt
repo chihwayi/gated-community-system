@@ -15,4 +15,5 @@ python-multipart
 pyotp
 qrcode
 minio
+exponent_server_sdk
 
