@@ -36,8 +36,9 @@ def upgrade() -> None:
             sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
             sa.Column('updated_at', sa.DateTime(timezone=True), onupdate=sa.func.now())
         )
-        op.create_index(op.f('ix_vehicles_id'), 'vehicles', ['id'], unique=False)
-        op.create_index(op.f('ix_vehicles_license_plate'), 'vehicles', ['license_plate'], unique=False)
+        # Indexes are created by index=True in Column definitions
+        # op.create_index(op.f('ix_vehicles_id'), 'vehicles', ['id'], unique=False)
+        # op.create_index(op.f('ix_vehicles_license_plate'), 'vehicles', ['license_plate'], unique=False)
     else:
         columns = [c['name'] for c in inspector.get_columns('vehicles')]
         if 'image_url' not in columns:
