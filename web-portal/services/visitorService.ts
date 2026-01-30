@@ -9,15 +9,20 @@ export interface Visitor {
   purpose?: string;
   expected_arrival?: string;
   host_id: number;
-  status: 'pending' | 'approved' | 'checked_in' | 'checked_out' | 'denied';
+  status: 'pending' | 'approved' | 'checked_in' | 'checked_out' | 'denied' | 'expected' | 'expired' | 'rejected';
   access_code: string;
   created_at: string;
   check_in_time?: string;
   check_out_time?: string;
   items_carried_in?: string;
   items_carried_out?: string;
+  allowed_items_out?: string;
   visitor_type?: 'visitor' | 'maid' | 'contractor' | 'delivery' | 'other';
   valid_until?: string;
+  host?: {
+    house_address?: string;
+    full_name?: string;
+  };
 }
 
 export interface VisitorCreate {
@@ -93,6 +98,18 @@ export const visitorService = {
     });
     if (!response.ok) {
       throw new Error('Failed to fetch visitor details');
+    }
+    return response.json();
+  },
+
+  async updateVisitor(visitorId: number, data: Partial<Visitor>): Promise<Visitor> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/visitors/${visitorId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update visitor');
     }
     return response.json();
   },

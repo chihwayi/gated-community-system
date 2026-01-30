@@ -44,6 +44,7 @@ class Visitor(VisitorBase):
     check_out_time: Optional[datetime] = None
     items_carried_in: Optional[str] = None
     items_carried_out: Optional[str] = None
+    allowed_items_out: Optional[str] = None
 
     class Config:
         from_attributes = True

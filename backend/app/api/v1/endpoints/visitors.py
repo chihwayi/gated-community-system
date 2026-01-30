@@ -178,6 +178,10 @@ async def check_in_visitor(
     if blacklist_entry:
          raise HTTPException(status_code=403, detail="This visitor is blacklisted and cannot be checked in.")
     
+    # Check Expiry
+    if db_visitor.valid_until and db_visitor.valid_until < datetime.now(db_visitor.valid_until.tzinfo):
+        raise HTTPException(status_code=400, detail="Access code has expired")
+
     if db_visitor.status == VisitorStatus.CHECKED_IN:
         raise HTTPException(status_code=400, detail="Visitor already checked in")
         

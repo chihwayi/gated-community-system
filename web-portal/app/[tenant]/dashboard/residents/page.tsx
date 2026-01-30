@@ -473,6 +473,17 @@ export default function ResidentsPage() {
                     <input
                       type="radio"
                       name="role"
+                      value="family_member"
+                      checked={formData.role === "family_member"}
+                      onChange={(e) => setFormData({...formData, role: "family_member" as any})}
+                      className="text-cyan-500 focus:ring-cyan-500 bg-slate-950 border-slate-800"
+                    />
+                    <span className="text-slate-300">Family Member</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
                       value="guard"
                       checked={formData.role === "guard"}
                       onChange={(e) => setFormData({...formData, role: "guard" as any})}

@@ -33,6 +33,7 @@ import ChangePasswordScreen from './src/screens/ChangePasswordScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import FamilyScreen from './src/screens/FamilyScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import DigitalIDScreen from './src/screens/DigitalIDScreen';
 
 import { Storage } from './src/utils/storage';
 import { COLORS } from './src/constants/theme';
@@ -114,6 +115,7 @@ export default function App() {
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="Family" component={FamilyScreen} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+            <Stack.Screen name="DigitalID" component={DigitalIDScreen} />
           </Stack.Navigator>
         </NavigationContainer>
         <Toast />

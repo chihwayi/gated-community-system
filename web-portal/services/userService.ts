@@ -6,7 +6,7 @@ export interface User {
   email: string;
   full_name: string;
   phone_number?: string;
-  role: 'admin' | 'resident' | 'guard';
+  role: 'admin' | 'resident' | 'guard' | 'family_member';
   is_active: boolean;
   created_at: string;
   house_address?: string;
@@ -20,7 +20,7 @@ export interface UserCreate {
   full_name: string;
   phone_number?: string;
   house_address?: string;
-  role: 'admin' | 'resident' | 'guard';
+  role: 'admin' | 'resident' | 'guard' | 'family_member';
 }
 
 export interface UserUpdate {
@@ -37,7 +37,8 @@ export const userService = {
     const token = authService.getToken();
     if (!token) throw new Error('No authentication token');
 
-    const response = await fetch(`${API_CONFIG.BASE_URL}/users/?role=resident`, {
+    // Fetch all users and filter client-side to include residents and family members
+    const response = await fetch(`${API_CONFIG.BASE_URL}/users/?limit=1000`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -46,7 +47,8 @@ export const userService = {
     if (!response.ok) {
       throw new Error('Failed to fetch residents');
     }
-    return response.json();
+    const users: User[] = await response.json();
+    return users.filter(u => u.role === 'resident' || u.role === 'family_member');
   },
 
   async getGuards(): Promise<User[]> {
@@ -77,6 +79,22 @@ export const userService = {
 
     if (!response.ok) {
       throw new Error('Failed to fetch household members');
+    }
+    return response.json();
+  },
+
+  async getUser(id: number): Promise<User> {
+    const token = authService.getToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/users/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch user');
     }
     return response.json();
   },

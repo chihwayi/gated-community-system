@@ -131,7 +131,13 @@ export default function ResidentPortalPage() {
             { id: 'amenities', icon: Dumbbell, label: "Amenities" },
             { id: 'notices', icon: Bell, label: "Notices" },
             { id: 'settings', icon: Settings, label: "Settings" },
-          ].map((item) => {
+          ].filter(item => {
+            if (user?.role === 'family_member') {
+              // Minimalistic view for family members
+              return !['payments', 'family', 'staff'].includes(item.id);
+            }
+            return true;
+          }).map((item) => {
             const isActive = activeTab === item.id;
             return (
             <button 
@@ -239,7 +245,12 @@ export default function ResidentPortalPage() {
               { label: "Visitors Today", value: "4", icon: Users, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
               { label: "Next Payment", value: "$450", icon: CreditCard, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
               { label: "New Notices", value: unreadCount.toString(), icon: Bell, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
-            ].map((stat) => (
+            ].filter(stat => {
+              if (user?.role === 'family_member') {
+                return !['Account Status', 'Next Payment'].includes(stat.label);
+              }
+              return true;
+            }).map((stat) => (
               <div 
                 key={stat.label}
                 className="group p-5 rounded-2xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-all hover:bg-slate-800/50 relative overflow-hidden"
@@ -330,6 +341,7 @@ export default function ResidentPortalPage() {
               </div>
 
               {/* Quick Pay Card */}
+              {user?.role !== 'family_member' && (
               <div className="rounded-2xl bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border border-indigo-500/20 p-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-purple-500/30 blur-3xl rounded-full" />
                 
@@ -368,6 +380,7 @@ export default function ResidentPortalPage() {
                   Pay Now
                 </button>
               </div>
+              )}
 
               {/* Notices */}
               <div className="rounded-2xl bg-slate-900/50 border border-white/5 overflow-hidden backdrop-blur-sm">

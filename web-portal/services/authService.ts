@@ -5,7 +5,7 @@ export interface User {
   email: string;
   full_name: string;
   phone_number?: string;
-  role: 'admin' | 'resident' | 'guard' | 'super_admin';
+  role: 'admin' | 'resident' | 'guard' | 'super_admin' | 'family_member';
   is_active: boolean;
   is_password_changed: boolean;
   created_at: string;

@@ -273,11 +273,13 @@ export default function ResidentDashboard({ route, navigation }: any) {
                 <Text style={styles.statsValue}>{visitors.length}</Text>
                 <Text style={styles.statsLabel}>Visitors</Text>
             </Container>
+            {user?.role !== 'family_member' && (
             <Container {...containerProps} style={[styles.statsCard, Platform.OS === 'android' && styles.androidCard]}>
                 <Wallet color="#34d399" size={24} style={styles.statsIcon} />
                 <Text style={styles.statsValue}>$0</Text>
                 <Text style={styles.statsLabel}>Balance</Text>
             </Container>
+            )}
             <Container {...containerProps} style={[styles.statsCard, Platform.OS === 'android' && styles.androidCard]}>
                 <FileText color="#c084fc" size={24} style={styles.statsIcon} />
                 <Text style={styles.statsValue}>2</Text>
@@ -316,7 +318,13 @@ export default function ResidentDashboard({ route, navigation }: any) {
           {/* Quick Actions */}
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            {QUICK_ACTIONS.map((action) => (
+            {QUICK_ACTIONS.filter(action => {
+                if (user?.role === 'family_member') {
+                    // Minimalistic view for family members: Gate, Helpdesk, Community, Marketplace, Parcels, Amenities, Vehicles
+                    return ['1', '3', '4', '5', '6', '7', '10'].includes(action.id);
+                }
+                return true;
+            }).map((action) => (
               <TouchableOpacity 
                 key={action.id} 
                 style={styles.actionCard}
@@ -332,6 +340,7 @@ export default function ResidentDashboard({ route, navigation }: any) {
                   if (action.id === '9') navigation.navigate('Staff');
                   if (action.id === '10') navigation.navigate('Vehicles');
                   if (action.id === '11') navigation.navigate('Family');
+                  if (action.id === '12') navigation.navigate('DigitalID');
                 }}
               >
                 <BlurView intensity={20} tint="dark" style={styles.actionBlur}>

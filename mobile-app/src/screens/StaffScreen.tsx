@@ -81,7 +81,7 @@ export default function StaffScreen({ navigation }: any) {
     full_name: '',
     email: '',
     phone_number: '',
-    password: 'Password123!',
+    password: '',
   });
 
   // Password Reset State
@@ -198,7 +198,7 @@ export default function StaffScreen({ navigation }: any) {
             full_name: '',
             email: '',
             phone_number: '',
-            password: 'Password123!',
+            password: '',
         });
         fetchGuards();
     } catch (error: any) {
@@ -373,14 +373,16 @@ export default function StaffScreen({ navigation }: any) {
           </View>
         ) : (
           <FlatList
-            data={staff}
+            data={activeTab === 'guards' ? guards : staff}
             renderItem={renderItem}
             keyExtractor={item => item.id.toString()}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No staff members found.</Text>
+                <Text style={styles.emptyText}>
+                  {activeTab === 'guards' ? 'No security guards found.' : 'No staff members found.'}
+                </Text>
               </View>
             }
           />
@@ -399,62 +401,112 @@ export default function StaffScreen({ navigation }: any) {
             >
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Add New Staff</Text>
+                        <Text style={styles.modalTitle}>
+                            {activeTab === 'guards' ? 'Add New Security Guard' : 'Add New Staff'}
+                        </Text>
                         <TouchableOpacity onPress={() => setModalVisible(false)}>
                             <X color="#94a3b8" size={24} />
                         </TouchableOpacity>
                     </View>
                     
                     <ScrollView style={styles.formContainer}>
-                        <Text style={styles.label}>Full Name</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Jane Doe"
-                            placeholderTextColor="#64748b"
-                            value={newStaff.full_name}
-                            onChangeText={(text) => setNewStaff({...newStaff, full_name: text})}
-                        />
+                        {activeTab === 'guards' ? (
+                            <>
+                                <Text style={styles.label}>Full Name</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="John Doe"
+                                    placeholderTextColor="#64748b"
+                                    value={newGuard.full_name}
+                                    onChangeText={(text) => setNewGuard({...newGuard, full_name: text})}
+                                />
 
-                        <Text style={styles.label}>Phone Number</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="+1 234 567 8900"
-                            placeholderTextColor="#64748b"
-                            value={newStaff.phone_number}
-                            onChangeText={(text) => setNewStaff({...newStaff, phone_number: text})}
-                            keyboardType="phone-pad"
-                        />
+                                <Text style={styles.label}>Email Address</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="guard@example.com"
+                                    placeholderTextColor="#64748b"
+                                    value={newGuard.email}
+                                    onChangeText={(text) => setNewGuard({...newGuard, email: text})}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
 
-                        <Text style={styles.label}>Staff Type</Text>
-                        <View style={styles.typeContainer}>
-                            {['maid', 'driver', 'cook', 'gardener', 'other'].map((type) => (
-                                <TouchableOpacity
-                                    key={type}
-                                    style={[
-                                        styles.typeButton,
-                                        newStaff.staff_type === type && styles.typeButtonActive
-                                    ]}
-                                    onPress={() => setNewStaff({...newStaff, staff_type: type})}
-                                >
-                                    <Text style={[
-                                        styles.typeButtonText,
-                                        newStaff.staff_type === type && styles.typeButtonTextActive
-                                    ]}>
-                                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                                <Text style={styles.label}>Phone Number</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="+1 234 567 8900"
+                                    placeholderTextColor="#64748b"
+                                    value={newGuard.phone_number}
+                                    onChangeText={(text) => setNewGuard({...newGuard, phone_number: text})}
+                                    keyboardType="phone-pad"
+                                />
+
+                                <Text style={styles.label}>Password</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Password"
+                                    placeholderTextColor="#64748b"
+                                    value={newGuard.password}
+                                    onChangeText={(text) => setNewGuard({...newGuard, password: text})}
+                                    secureTextEntry
+                                />
+                            </>
+                        ) : (
+                            <>
+                                <Text style={styles.label}>Full Name</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Jane Doe"
+                                    placeholderTextColor="#64748b"
+                                    value={newStaff.full_name}
+                                    onChangeText={(text) => setNewStaff({...newStaff, full_name: text})}
+                                />
+
+                                <Text style={styles.label}>Phone Number</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="+1 234 567 8900"
+                                    placeholderTextColor="#64748b"
+                                    value={newStaff.phone_number}
+                                    onChangeText={(text) => setNewStaff({...newStaff, phone_number: text})}
+                                    keyboardType="phone-pad"
+                                />
+
+                                <Text style={styles.label}>Staff Type</Text>
+                                <View style={styles.typeContainer}>
+                                    {['maid', 'driver', 'cook', 'gardener', 'other'].map((type) => (
+                                        <TouchableOpacity
+                                            key={type}
+                                            style={[
+                                                styles.typeButton,
+                                                newStaff.staff_type === type && styles.typeButtonActive
+                                            ]}
+                                            onPress={() => setNewStaff({...newStaff, staff_type: type})}
+                                        >
+                                            <Text style={[
+                                                styles.typeButtonText,
+                                                newStaff.staff_type === type && styles.typeButtonTextActive
+                                            ]}>
+                                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
 
                         <TouchableOpacity 
                             style={styles.submitButton}
-                            onPress={handleAddStaff}
+                            onPress={handleAdd}
                             disabled={adding}
                         >
                             {adding ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.submitButtonText}>Create Staff</Text>
+                                <Text style={styles.submitButtonText}>
+                                    {activeTab === 'guards' ? 'Create Guard' : 'Create Staff'}
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </ScrollView>
@@ -677,6 +729,11 @@ const styles = StyleSheet.create({
   role: {
     fontSize: 14,
     color: '#94a3b8',
+  },
+  email: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
   },
   moreButton: {
     padding: 4,

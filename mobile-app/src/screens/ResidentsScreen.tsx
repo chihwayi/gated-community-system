@@ -60,7 +60,7 @@ export default function ResidentsScreen({ navigation }: any) {
     email: '',
     phone_number: '',
     house_address: '',
-    password: 'Password123!', // Default or input
+    password: '', // Default or input
   });
   const [adding, setAdding] = useState(false);
 
@@ -206,7 +206,7 @@ export default function ResidentsScreen({ navigation }: any) {
             email: '',
             phone_number: '',
             house_address: '',
-            password: 'Password123!',
+            password: '',
         });
         fetchResidents();
     } catch (error: any) {
@@ -226,40 +226,42 @@ export default function ResidentsScreen({ navigation }: any) {
     const containerProps = Platform.OS === 'ios' ? { intensity: 20, tint: 'dark' as const } : {};
 
     return (
-    <Container {...containerProps} style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
-      <View style={styles.cardHeader}>
-        <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            <User size={20} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.name}>{item.name}</Text>
-            <View style={styles.unitContainer}>
-              <MapPin size={12} color="#94a3b8" />
-              <Text style={styles.unit}>{item.unit}</Text>
+    <TouchableOpacity onPress={() => handleManageHousehold(item)} activeOpacity={0.9}>
+      <Container {...containerProps} style={[styles.card, Platform.OS === 'android' && styles.androidCard]}>
+        <View style={styles.cardHeader}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatar}>
+              <User size={20} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.name}>{item.name}</Text>
+              <View style={styles.unitContainer}>
+                <MapPin size={12} color="#94a3b8" />
+                <Text style={styles.unit}>{item.unit}</Text>
+              </View>
             </View>
           </View>
+          <View style={[styles.statusBadge, { backgroundColor: item.status === 'Active' ? 'rgba(16, 185, 129, 0.2)' : item.status === 'Pending' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)' }]}>
+            <Text style={[styles.statusText, { color: item.status === 'Active' ? '#34d399' : item.status === 'Pending' ? '#fbbf24' : '#f87171' }]}>
+              {item.status}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: item.status === 'Active' ? 'rgba(16, 185, 129, 0.2)' : item.status === 'Pending' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)' }]}>
-          <Text style={[styles.statusText, { color: item.status === 'Active' ? '#34d399' : item.status === 'Pending' ? '#fbbf24' : '#f87171' }]}>
-            {item.status}
-          </Text>
+
+        <View style={styles.divider} />
+
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleManageHousehold(item)}>
+            <Users size={16} color="#3b82f6" />
+            <Text style={styles.actionText}>Household</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => openResetModal(item.id)}>
+              <Lock size={16} color="#3b82f6" />
+              <Text style={styles.actionText}>Password</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Phone size={16} color="#3b82f6" />
-          <Text style={styles.actionText}>Call</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Mail size={16} color="#3b82f6" />
-          <Text style={styles.actionText}>Email</Text>
-        </TouchableOpacity>
-      </View>
-    </Container>
+      </Container>
+    </TouchableOpacity>
   );
 };
 
@@ -410,7 +412,7 @@ export default function ResidentsScreen({ navigation }: any) {
                         <Text style={styles.label}>Temporary Password</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Password123!"
+                            placeholder="Enter password"
                             placeholderTextColor="#64748b"
                             value={newResident.password}
                             onChangeText={(text) => setNewResident({...newResident, password: text})}

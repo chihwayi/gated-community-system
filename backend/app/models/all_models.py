@@ -9,6 +9,7 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
     RESIDENT = "resident"
     GUARD = "guard"
+    FAMILY_MEMBER = "family_member"
 
 class VisitorStatus(str, enum.Enum):
     EXPECTED = "expected"
@@ -294,6 +295,7 @@ class Visitor(Base):
     
     items_carried_in = Column(String, nullable=True)
     items_carried_out = Column(String, nullable=True)
+    allowed_items_out = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -466,6 +468,21 @@ class StaffAttendance(Base):
     check_out = Column(DateTime(timezone=True), nullable=True)
     
     staff = relationship("Staff", backref="attendance_records")
+
+class AccessLog(Base):
+    __tablename__ = "access_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    direction = Column(String, nullable=False) # "entry" or "exit"
+    method = Column(String, default="digital_id") # "digital_id", "manual", "face_id"
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    guard_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Who scanned them (optional)
+
+    user = relationship("User", foreign_keys=[user_id], backref="access_logs")
+    guard = relationship("User", foreign_keys=[guard_id])
+    tenant = relationship("Tenant", backref="access_logs")
 
 # --- New Models for Advanced Features ---
 

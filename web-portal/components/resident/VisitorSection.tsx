@@ -6,7 +6,9 @@ import {
   ShieldCheck, 
   Users, 
   ChevronRight,
-  Loader2
+  Loader2,
+  LogOut,
+  X
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { visitorService, Visitor } from "@/services/visitorService";
@@ -29,6 +31,10 @@ export default function VisitorSection() {
     valid_until_date: "",
     valid_until_time: ""
   });
+  
+  // Exit Pass State
+  const [exitPassVisitor, setExitPassVisitor] = useState<Visitor | null>(null);
+  const [exitPassItems, setExitPassItems] = useState("");
 
   useEffect(() => {
     fetchVisitors();
@@ -88,6 +94,27 @@ export default function VisitorSection() {
     } catch (error) {
       console.error("Failed to register visitor", error);
       showToast("Failed to register visitor", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateExitPass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!exitPassVisitor) return;
+    
+    setIsLoading(true);
+    try {
+      await visitorService.updateVisitor(exitPassVisitor.id, {
+        allowed_items_out: exitPassItems
+      });
+      showToast("Exit pass updated successfully", "success");
+      setExitPassVisitor(null);
+      setExitPassItems("");
+      fetchVisitors();
+    } catch (error) {
+      console.error("Failed to update exit pass", error);
+      showToast("Failed to update exit pass", "error");
     } finally {
       setIsLoading(false);
     }
@@ -294,7 +321,7 @@ export default function VisitorSection() {
                   </div>
                 </div>
                 
-                <div className="text-right">
+                <div className="text-right flex flex-col items-end gap-2">
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${
                     visitor.status === 'checked_in' 
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
@@ -310,7 +337,21 @@ export default function VisitorSection() {
                      visitor.status === 'checked_out' ? 'Left' : 
                      'Pending'}
                   </span>
-                  <p className="text-xs text-slate-600 mt-1.5 font-mono">
+                  
+                  {visitor.status === 'checked_in' && (
+                    <button
+                      onClick={() => {
+                        setExitPassVisitor(visitor);
+                        setExitPassItems(visitor.allowed_items_out || "");
+                      }}
+                      className="text-xs flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition-colors"
+                    >
+                      <LogOut className="w-3 h-3" />
+                      {visitor.allowed_items_out ? 'Edit Exit Pass' : 'Add Exit Pass'}
+                    </button>
+                  )}
+                  
+                  <p className="text-xs text-slate-600 font-mono">
                     {new Date(visitor.created_at).toLocaleDateString()}
                   </p>
                 </div>
@@ -319,6 +360,58 @@ export default function VisitorSection() {
           )}
         </div>
       </div>
+
+      {/* Exit Pass Modal */}
+      {exitPassVisitor && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-white/10 p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <LogOut className="w-5 h-5 text-cyan-400" />
+                Exit Pass
+              </h3>
+              <button 
+                onClick={() => setExitPassVisitor(null)}
+                className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateExitPass} className="space-y-4">
+              <div>
+                 <p className="text-sm text-slate-400 mb-2">
+                   Authorize items for <strong>{exitPassVisitor.full_name}</strong> to take out of the community.
+                 </p>
+                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Allowed Items</label>
+                 <textarea
+                   value={exitPassItems}
+                   onChange={(e) => setExitPassItems(e.target.value)}
+                   placeholder="e.g. Laptop, Tools, Furniture..."
+                   className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all min-h-[100px]"
+                 />
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setExitPassVisitor(null)}
+                  className="flex-1 py-3 rounded-xl font-medium hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-medium shadow-lg shadow-cyan-900/20 transition-all"
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Save Pass'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

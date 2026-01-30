@@ -15,11 +15,17 @@ def read_users(
     skip: int = 0,
     limit: int = 100,
     role: Optional[str] = None,
-    current_user: User = Depends(deps.get_current_active_admin),
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Retrieve all users (Admin only). Optionally filter by role.
+    Retrieve all users.
+    Admins: Can see all.
+    Guards: Can see all (needed for searching residents).
     """
+    if current_user.role not in [UserRole.ADMIN, UserRole.GUARD, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=400, detail="The user doesn't have enough privileges"
+        )
     users = crud_user.get_multi(db, skip=skip, limit=limit, role=role, tenant_id=current_user.tenant_id)
     return users
 
@@ -105,7 +111,7 @@ def read_household_members(
     members = db.query(User).filter(
         User.house_address == current_user.house_address,
         User.is_active == True,
-        User.role == UserRole.RESIDENT
+        User.role.in_([UserRole.RESIDENT, UserRole.FAMILY_MEMBER])
     ).all()
     return members
 

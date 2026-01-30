@@ -8,7 +8,8 @@ import {
   TextInput,
   Dimensions,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,6 +35,12 @@ export default function VisitorsScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [visitors, setVisitors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Exit Pass State
+  const [exitModalVisible, setExitModalVisible] = useState(false);
+  const [selectedVisitorId, setSelectedVisitorId] = useState<number | null>(null);
+  const [allowedItems, setAllowedItems] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchVisitors();
@@ -53,6 +60,41 @@ export default function VisitorsScreen({ navigation }: any) {
       console.error('Error fetching visitors:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenExitModal = (visitor: any) => {
+    setSelectedVisitorId(visitor.id);
+    setAllowedItems(visitor.allowed_items_out || '');
+    setExitModalVisible(true);
+  };
+
+  const handleSubmitExitPass = async () => {
+    if (!selectedVisitorId) return;
+    setSubmitting(true);
+    try {
+        const token = await Storage.getToken();
+        const response = await fetch(`${API_URL}${ENDPOINTS.VISITORS}/${selectedVisitorId}`, {
+            method: 'PUT',
+            headers: { 
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ allowed_items_out: allowedItems })
+        });
+        
+        if (response.ok) {
+            setVisitors(prev => prev.map(v => 
+                v.id === selectedVisitorId ? { ...v, allowed_items_out: allowedItems } : v
+            ));
+            setExitModalVisible(false);
+        } else {
+            console.error('Failed to update exit pass');
+        }
+    } catch (e) {
+        console.error('Error updating exit pass:', e);
+    } finally {
+        setSubmitting(false);
     }
   };
 
@@ -103,6 +145,15 @@ export default function VisitorsScreen({ navigation }: any) {
           <Text style={styles.detailText}>{item.time}</Text>
         </View>
       </View>
+
+      {['checked_in', 'Checked In'].includes(item.status) && (
+        <TouchableOpacity
+          style={{ marginTop: SPACING.m, backgroundColor: 'rgba(255,255,255,0.1)', padding: SPACING.s, borderRadius: BORDER_RADIUS.s, alignItems: 'center' }}
+          onPress={() => handleOpenExitModal(item)}
+        >
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{item.allowed_items_out ? 'Edit Exit Pass' : 'Generate Exit Pass'}</Text>
+        </TouchableOpacity>
+      )}
     </Container>
   );
   };

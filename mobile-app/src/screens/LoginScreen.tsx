@@ -170,6 +170,7 @@ export default function LoginScreen({ route, navigation }: any) {
         case 'guard':
           navigation.replace('GuardDashboard', { tenant });
           break;
+        case 'family_member':
         case 'resident':
         default:
           navigation.replace('ResidentDashboard', { tenant });

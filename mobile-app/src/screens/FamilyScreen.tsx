@@ -36,7 +36,7 @@ export default function FamilyScreen({ navigation, route }: any) {
     full_name: '',
     email: '',
     phone_number: '',
-    password: 'Password123!',
+    password: '',
   });
   const [adding, setAdding] = useState(false);
 
@@ -167,7 +167,7 @@ export default function FamilyScreen({ navigation, route }: any) {
             body: JSON.stringify({
                 ...newMember,
                 house_address: addressToUse,
-                role: 'resident',
+                role: 'family_member',
                 tenant_id: tenantIdToUse
             }),
         });
@@ -188,7 +188,7 @@ export default function FamilyScreen({ navigation, route }: any) {
             full_name: '',
             email: '',
             phone_number: '',
-            password: 'Password123!',
+            password: '',
         });
         fetchHousehold();
     } catch (error: any) {
@@ -366,7 +366,7 @@ export default function FamilyScreen({ navigation, route }: any) {
                         <Text style={styles.label}>Temporary Password</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Password123!"
+                            placeholder="Enter password"
                             placeholderTextColor="#64748b"
                             value={newMember.password}
                             onChangeText={(text) => setNewMember({...newMember, password: text})}
