@@ -30,7 +30,7 @@ export default function AnnouncementsPage() {
 
   const fetchNotices = async () => {
     try {
-      const data = await noticeService.getAllNotices();
+      const data = await noticeService.getNotices();
       setNotices(data);
     } catch (error) {
       console.error("Failed to fetch notices:", error);

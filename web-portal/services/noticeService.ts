@@ -8,16 +8,18 @@ export interface Notice {
   created_at: string;
   author_id: number;
   tenant_id: number;
+  expiry_date?: string;
 }
 
 export interface NoticeCreate {
   title: string;
   content: string;
   priority: 'low' | 'medium' | 'high';
+  expiry_date?: string;
 }
 
 export const noticeService = {
-  getAllNotices: async (): Promise<Notice[]> => {
+  getNotices: async (): Promise<Notice[]> => {
     const response = await api.get<Notice[]>('/notices/');
     return response.data;
   },

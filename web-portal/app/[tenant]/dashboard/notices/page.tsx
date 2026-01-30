@@ -56,7 +56,7 @@ export default function NoticesPage() {
       await noticeService.createNotice({
         title: formData.title,
         content: formData.content,
-        priority: formData.priority,
+        priority: formData.priority as "low" | "medium" | "high",
         expiry_date: formData.expiry_date ? new Date(formData.expiry_date).toISOString() : undefined
       });
       await fetchNotices();
