@@ -37,8 +37,8 @@ import { toast } from "react-hot-toast";
 type Tab = 'access' | 'parcels' | 'vehicles';
 
 export default function SecurityGuardPage() {
-  const { logout } = useAuth();
-  const { tenant } = useTenant();
+  const { logout, user, isLoading: authLoading } = useAuth();
+  const { tenant, isLoading: tenantLoading } = useTenant();
   const [activeTab, setActiveTab] = useState<Tab>('access');
   
   // Access Control State
@@ -68,19 +68,21 @@ export default function SecurityGuardPage() {
   const [itemsCarriedOut, setItemsCarriedOut] = useState("");
 
   useEffect(() => {
+    if (authLoading || !user) return;
     fetchIncidents();
     const interval = setInterval(fetchIncidents, 30000); // Poll every 30s
     return () => clearInterval(interval);
-  }, []);
+  }, [authLoading, user]);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     if (activeTab === 'parcels') {
       fetchParcels();
       fetchResidents();
     } else if (activeTab === 'vehicles') {
       fetchVehicles();
     }
-  }, [activeTab]);
+  }, [activeTab, authLoading, user]);
 
   const fetchIncidents = async () => {
     try {

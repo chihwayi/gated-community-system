@@ -239,3 +239,27 @@ def check_out_visitor(
         visitor_update.items_carried_out = visitor_update_in.items_carried_out
     
     return crud_visitor.update_visitor(db=db, db_visitor=db_visitor, visitor_update=visitor_update)
+
+@router.put("/{visitor_id}", response_model=schemas.Visitor)
+def update_visitor(
+    visitor_id: int,
+    visitor_in: schemas.VisitorUpdate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update a visitor.
+    """
+    visitor = crud_visitor.get_visitor(db=db, visitor_id=visitor_id)
+    if not visitor:
+        raise HTTPException(status_code=404, detail="Visitor not found")
+    
+    # Check permissions
+    if current_user.role == UserRole.RESIDENT and visitor.host_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this visitor")
+    
+    if current_user.role not in [UserRole.ADMIN, UserRole.GUARD, UserRole.RESIDENT]:
+         raise HTTPException(status_code=403, detail="Not authorized")
+
+    visitor = crud_visitor.update_visitor(db=db, db_visitor=visitor, visitor_update=visitor_in)
+    return visitor

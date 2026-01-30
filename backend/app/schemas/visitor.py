@@ -14,6 +14,7 @@ class VisitorBase(BaseModel):
     expected_arrival: Optional[datetime] = None
     items_carried_in: Optional[str] = None
     items_carried_out: Optional[str] = None
+    allowed_items_out: Optional[str] = None
 
 # Properties to receive on creation via API (host_id inferred from token)
 class VisitorCreateRequest(VisitorBase):

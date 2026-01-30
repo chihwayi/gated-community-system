@@ -46,7 +46,7 @@ services:
     image: nginx:latest
     restart: always
     ports:
-      - "80:80"
+      - "${NGINX_PORT:-80}:80"
     volumes:
       - ./nginx/templates:/etc/nginx/templates
     environment:
@@ -59,8 +59,8 @@ services:
     image: minio/minio
     restart: always
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio_data:/data
     environment:
