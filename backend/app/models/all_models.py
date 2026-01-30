@@ -303,24 +303,6 @@ class Visitor(Base):
     host = relationship("User", backref="visitors")
     tenant = relationship("Tenant", backref="visitors")
 
-class Vehicle(Base):
-    __tablename__ = "vehicles"
-
-    id = Column(Integer, primary_key=True, index=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    license_plate = Column(String, index=True, nullable=False)
-    make = Column(String, nullable=True)
-    model = Column(String, nullable=True)
-    color = Column(String, nullable=True)
-    parking_slot = Column(String, nullable=True)
-    image_url = Column(String, nullable=True)
-    
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    owner = relationship("User", backref="vehicles")
-    tenant = relationship("Tenant", backref="vehicles")
 
 class FeeDefinition(Base):
     __tablename__ = "fee_definitions"
