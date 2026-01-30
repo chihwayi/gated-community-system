@@ -29,29 +29,29 @@ def get_dashboard_stats(
     total_visitors = db.query(func.count(Visitor.id)).filter(Visitor.tenant_id == tenant_id).scalar()
     active_visitors = db.query(func.count(Visitor.id)).filter(
         Visitor.tenant_id == tenant_id, 
-        Visitor.status == VisitorStatus.CHECKED_IN.value
+        Visitor.status == VisitorStatus.CHECKED_IN
     ).scalar()
     pending_visitors = db.query(func.count(Visitor.id)).filter(
         Visitor.tenant_id == tenant_id, 
-        Visitor.status == VisitorStatus.EXPECTED.value
+        Visitor.status == VisitorStatus.EXPECTED
     ).scalar()
     
     # 2. Incident Stats (Open/Critical)
     open_incidents = db.query(func.count(Incident.id)).filter(
         Incident.tenant_id == tenant_id,
-        Incident.status == IncidentStatus.OPEN.value
+        Incident.status == IncidentStatus.OPEN
     ).scalar()
     
     # 3. Financial Stats (Pending Bills)
     pending_bills = db.query(func.count(Bill.id)).filter(
         Bill.tenant_id == tenant_id,
-        Bill.status == BillStatus.UNPAID.value
+        Bill.status == BillStatus.UNPAID
     ).scalar()
     
     # 4. Maintenance Stats (Open Tickets)
     open_tickets = db.query(func.count(Ticket.id)).filter(
         Ticket.tenant_id == tenant_id,
-        Ticket.status.in_([TicketStatus.OPEN.value, TicketStatus.IN_PROGRESS.value])
+        Ticket.status.in_([TicketStatus.OPEN, TicketStatus.IN_PROGRESS])
     ).scalar()
 
     return {
