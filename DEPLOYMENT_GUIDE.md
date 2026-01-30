@@ -1,86 +1,97 @@
-# Deployment Guide (Remote Server & Multi-Tenancy)
+# Single-Tenant Deployment Guide (v1.0.0)
 
-This document describes how to deploy the Gated Community System to a remote server (VPS or Cloud) with multi-tenancy support and no CORS issues.
+This guide describes how to deploy the **Single-Tenant** version of the Gated Community System to any Linux server (VPS or Cloud).
 
-## Architecture
+## Quick Start (Automated Deployment)
 
-- **Nginx (Reverse Proxy)**: Listens on port 80/443. Routes traffic to Frontend and Backend. Handles CORS by serving everything from the same origin.
-- **Web Portal (Next.js)**: Runs on port 3000 (internal).
-- **Backend (FastAPI)**: Runs on port 8000 (internal).
-- **PostgreSQL**: Database.
-- **Minio**: Object storage.
+We have provided a unified deployment script `deploy.sh` that automates the entire process.
 
-## Multi-Tenancy Access
+### Prerequisites
+*   A clean Linux server (Ubuntu 20.04/22.04/24.04 recommended).
+*   Root or sudo access via SSH.
+*   Public IP address of the server.
 
-The system supports multi-tenancy via subdomains or query parameters.
+### Deploying to a Remote Server
 
-### Option 1: Subdomains (Recommended)
-If you have a domain (e.g., `mycommunity.com`) and wildcard DNS setup (`*.mycommunity.com` -> Server IP):
-- `tenant1.mycommunity.com` -> Loads Tenant 1 branding
-- `tenant2.mycommunity.com` -> Loads Tenant 2 branding
-
-### Option 2: IP-Based / Query Parameter (Testing/Simple Setup)
-If you only have an IP address (e.g., `173.212.195.88`):
-- `http://173.212.195.88/?tenant=tenant1` -> Loads Tenant 1 branding
-- `http://173.212.195.88/?tenant=tenant2` -> Loads Tenant 2 branding
-
-## Remote Server Deployment Steps
-
-### 1. Prerequisites
-- A remote server (Ubuntu/Debian recommended) with public IP.
-- Docker and Docker Compose installed.
-- Git installed.
-
-### 2. Clone Repository
-```bash
-git clone https://github.com/chihwayi/gated-community-system.git
-cd gated-community-system
-```
-
-### 3. Configure Environment
-Create a `.env` file from the example:
+Run this command from your **local machine** (replace placeholders with your actual details):
 
 ```bash
-cp .env.example .env
-nano .env
+./deploy.sh <SERVER_IP> <SSH_USER> <SSH_PORT>
 ```
 
-**Crucial Settings for Remote Server:**
-- `DOMAIN`: Set to your server's Public IP or Domain Name.
-- `NEXT_PUBLIC_API_URL`: `http://<YOUR_IP_OR_DOMAIN>/api/v1` (Note: No port 8000, goes through Nginx).
-- `BACKEND_CORS_ORIGINS`: `["http://<YOUR_IP_OR_DOMAIN>"]` (Allowed origin is now the Nginx entry point).
-- `MINIO_ENDPOINT`: `<YOUR_IP_OR_DOMAIN>:9000` (or proxy via Nginx if configured).
-
-Example `.env` for IP `173.212.195.88`:
-```env
-DOMAIN=173.212.195.88
-NEXT_PUBLIC_API_URL=http://173.212.195.88/api/v1
-BACKEND_CORS_ORIGINS=["http://173.212.195.88"]
-MINIO_ENDPOINT=173.212.195.88:9000
-```
-
-### 4. Start Services
+**Example:**
 ```bash
-docker-compose up -d --build
+./deploy.sh 173.212.195.88 root 22
 ```
 
-### 5. Verify Deployment
-- **Frontend**: Visit `http://<YOUR_IP>`
-- **Backend API**: Visit `http://<YOUR_IP>/api/v1/health` or `http://<YOUR_IP>/docs`
-- **Tenant Check**: Visit `http://<YOUR_IP>/?tenant=default` (or any slug you created).
+### What the Script Does
+1.  **Clones/Updates Repository**: Fetches the specific `v1.0.0-single-tenant` tag.
+2.  **Configures Environment**:
+    *   Creates `.env` file automatically.
+    *   Sets up production ports to avoid conflicts (Frontend: `8080`, Minio: `9005`/`9006`).
+    *   Configures API URLs and CORS for the specific server IP.
+3.  **Starts Services**: Launches Backend, Frontend, Database, and Minio using Docker Compose.
+4.  **Runs Migrations**: Applies all database schema changes.
+5.  **Seeds Data**:
+    *   Resets Admin credentials.
+    *   Creates dummy Guard and Resident accounts for testing.
 
-## Initial Setup & Super Admin
+---
 
-1. **Seed Data**: The system initializes with default data.
-2. **Create Super Admin**:
-   Access the database or use the initial seed credentials (usually `admin@example.com` / `changethis`).
-3. **Create Tenants**:
-   Use the Super Admin API (via Swagger UI at `/docs`) to create new tenants.
-   - Endpoint: `POST /api/v1/tenants/`
-   - Body: `{"name": "Sunset Villas", "slug": "sunset", "logo_url": "..."}`
+## Accessing the System
 
-## Production Considerations
+After the script completes, you can access the system immediately:
 
-- **SSL/HTTPS**: For production, update `nginx/nginx.conf` to handle SSL certificates (Let's Encrypt via Certbot recommended) and listen on 443.
-- **Security**: Change default passwords in `.env`.
-- **Backups**: Backup `postgres_data` and `minio_data` volumes regularly.
+| Portal | URL | Credentials (Email / Password) |
+| :--- | :--- | :--- |
+| **Admin Dashboard** | `http://<SERVER_IP>:8080/default/login` | `admin@example.com` / `admin123` |
+| **Guard Portal** | `http://<SERVER_IP>:8080/default/login` | `guard@example.com` / `guard123` |
+| **Resident Portal** | `http://<SERVER_IP>:8080/default/login` | `resident@example.com` / `resident123` |
+
+*Replace `<SERVER_IP>` with your actual server IP address.*
+
+---
+
+## Manual Deployment (If Script Fails)
+
+If you prefer to deploy manually on the server:
+
+1.  **SSH into Server**:
+    ```bash
+    ssh root@<SERVER_IP>
+    ```
+
+2.  **Clone Repository**:
+    ```bash
+    git clone https://github.com/chihwayi/gated-community-system.git
+    cd gated-community-system
+    git checkout v1.0.0-single-tenant
+    ```
+
+3.  **Setup Environment**:
+    ```bash
+    cp .env.example .env
+    # Edit .env to set DOMAIN=<SERVER_IP>, NGINX_PORT=8080, etc.
+    ```
+
+4.  **Start Docker**:
+    ```bash
+    docker compose -f docker-compose.prod.yml up -d --build
+    ```
+
+5.  **Run Migrations & Seed**:
+    ```bash
+    docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+    docker compose -f docker-compose.prod.yml exec backend python backend/reset_admin.py
+    docker compose -f docker-compose.prod.yml exec backend python backend/create_dummy_users.py
+    ```
+
+---
+
+## Troubleshooting
+
+*   **500 Internal Server Error**: Check backend logs:
+    ```bash
+    docker compose -f docker-compose.prod.yml logs --tail=100 backend
+    ```
+*   **Port Conflicts**: The script defaults to port `8080` for the web interface to avoid conflicts with existing services on port `80`. Ensure firewall allows traffic on port `8080`.
