@@ -1,7 +1,7 @@
 from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from app.api import deps
 from app.models.all_models import (
@@ -29,29 +29,29 @@ def get_dashboard_stats(
     total_visitors = db.query(func.count(Visitor.id)).filter(Visitor.tenant_id == tenant_id).scalar()
     active_visitors = db.query(func.count(Visitor.id)).filter(
         Visitor.tenant_id == tenant_id, 
-        Visitor.status == VisitorStatus.CHECKED_IN
+        Visitor.status == text("'checked_in'::visitorstatus")
     ).scalar()
     pending_visitors = db.query(func.count(Visitor.id)).filter(
         Visitor.tenant_id == tenant_id, 
-        Visitor.status == VisitorStatus.EXPECTED
+        Visitor.status == text("'expected'::visitorstatus")
     ).scalar()
     
     # 2. Incident Stats (Open/Critical)
     open_incidents = db.query(func.count(Incident.id)).filter(
         Incident.tenant_id == tenant_id,
-        Incident.status == IncidentStatus.OPEN
+        Incident.status == text("'open'::incidentstatus")
     ).scalar()
     
     # 3. Financial Stats (Pending Bills)
     pending_bills = db.query(func.count(Bill.id)).filter(
         Bill.tenant_id == tenant_id,
-        Bill.status == BillStatus.UNPAID
+        Bill.status == text("'unpaid'::billstatus")
     ).scalar()
     
     # 4. Maintenance Stats (Open Tickets)
     open_tickets = db.query(func.count(Ticket.id)).filter(
         Ticket.tenant_id == tenant_id,
-        Ticket.status.in_([TicketStatus.OPEN, TicketStatus.IN_PROGRESS])
+        text("tickets.status IN ('open', 'in_progress')")
     ).scalar()
 
     return {
