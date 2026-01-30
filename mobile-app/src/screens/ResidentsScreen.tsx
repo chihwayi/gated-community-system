@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Search, Phone, Mail, User, MapPin, Plus, X } from 'lucide-react-native';
+import { ChevronLeft, Search, Phone, Mail, User, MapPin, Plus, X, Lock, Users } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { BlurView } from 'expo-blur';
 import { Storage } from '../utils/storage';
@@ -64,6 +64,12 @@ export default function ResidentsScreen({ navigation }: any) {
   });
   const [adding, setAdding] = useState(false);
 
+  // Password Reset State
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
   useEffect(() => {
     fetchResidents();
   }, []);
@@ -89,6 +95,7 @@ export default function ResidentsScreen({ navigation }: any) {
         phone: user.phone_number || 'N/A',
         email: user.email,
         status: user.is_active ? 'Active' : 'Inactive',
+        tenant_id: user.tenant_id, // Added for context
       }));
       setResidents(formattedData);
     } catch (error) {
@@ -101,6 +108,64 @@ export default function ResidentsScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleManageHousehold = (user: any) => {
+    navigation.navigate('Family', { 
+        targetUser: {
+            id: user.id,
+            full_name: user.name,
+            house_address: user.unit,
+            tenant_id: user.tenant_id,
+        }
+    });
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPassword || !selectedUserId) {
+      showAlert('Error', 'Please enter a new password', 'error');
+      return;
+    }
+
+    setResetting(true);
+    try {
+      const token = await Storage.getToken();
+      const response = await fetch(`${API_URL}${ENDPOINTS.USERS}/${selectedUserId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          new_password: resetPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to reset password');
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Password reset successfully',
+      });
+      
+      setResetModalVisible(false);
+      setResetPassword('');
+      setSelectedUserId(null);
+    } catch (error: any) {
+      showAlert('Error', error.message, 'error');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const openResetModal = (userId: string) => {
+    setSelectedUserId(userId);
+    setResetPassword('');
+    setResetModalVisible(true);
   };
 
   const handleAddResident = async () => {
@@ -233,6 +298,55 @@ export default function ResidentsScreen({ navigation }: any) {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
+
+        {/* Reset Password Modal */}
+        <Modal
+            visible={resetModalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setResetModalVisible(false)}
+        >
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.modalContainer}
+            >
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Reset Password</Text>
+                        <TouchableOpacity onPress={() => setResetModalVisible(false)}>
+                            <X color="#94a3b8" size={24} />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <ScrollView style={styles.formContainer}>
+                        <Text style={styles.label}>New Password</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="NewPassword123!"
+                            placeholderTextColor="#64748b"
+                            value={resetPassword}
+                            onChangeText={setResetPassword}
+                            secureTextEntry
+                        />
+                        <Text style={[styles.label, { fontSize: 12, marginTop: 4 }]}>
+                            User will need to change this password on next login.
+                        </Text>
+
+                        <TouchableOpacity 
+                            style={styles.submitButton}
+                            onPress={handleResetPassword}
+                            disabled={resetting}
+                        >
+                            {resetting ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.submitButtonText}>Reset Password</Text>
+                            )}
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
 
         {/* Add Resident Modal */}
         <Modal

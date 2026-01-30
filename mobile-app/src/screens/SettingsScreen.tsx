@@ -24,6 +24,7 @@ import {
   Car
 } from 'lucide-react-native';
 import { Storage } from '../utils/storage';
+import { API_URL, ENDPOINTS } from '../config/api';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import Toast from 'react-native-toast-message';
 import { CustomAlert } from '../components/CustomAlert';
@@ -61,8 +62,28 @@ export default function SettingsScreen({ navigation }: any) {
   }, []);
 
   const loadUser = async () => {
-    const userData = await Storage.getUser();
-    setUser(userData);
+    try {
+      // Try to get from local storage first
+      const userData = await Storage.getUser();
+      if (userData) {
+        setUser(userData);
+      }
+      
+      // Then fetch fresh from API
+      const token = await Storage.getToken();
+      if (token) {
+        const response = await fetch(`${API_URL}${ENDPOINTS.USERS}/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data);
+          await Storage.saveUser(data);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user:', error);
+    }
   };
 
   const handleLogout = async () => {
